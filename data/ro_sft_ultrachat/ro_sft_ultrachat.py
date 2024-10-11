@@ -29,7 +29,7 @@ class UltraChat(datasets.GeneratorBasedBuilder):
         )
 
     def _split_generators(self, dl_manager):
-        file_paths = [dl_manager.download("https://huggingface.co/datasets/OpenLLM-Ro/ro_sft_ultrachat/resolve/main/train_{{idx}}_ro.json".format(idx=idx)) for idx in range(10)]  # multiple shards
+        file_paths = [dl_manager.download("https://huggingface.co/datasets/OpenLLM-Ro/ro_sft_ultrachat/tree/main/train_{{idx}}_ro.json".format(idx=idx)) for idx in range(10)]  # multiple shards
         return [datasets.SplitGenerator(name=datasets.Split.TRAIN, gen_kwargs={"filepaths": file_paths})]
 
     def _generate_examples(self, filepaths: List[str]):
