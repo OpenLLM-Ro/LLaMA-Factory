@@ -86,10 +86,8 @@
     }
   },
 
-
-
   "ro_sft_ultrachat": {
-    "script_url": "ro_sft_ultrachat",
+    "hf_hub_url": "OpenLLM-Ro/ro_sft_ultrachat",
     "formatting": "sharegpt"
   },
 
@@ -116,7 +114,7 @@
 
 
   "ro_dpo_helpsteer":{
-    "file_name": "ro_dpo_helpsteer.json",
+    "hf_hub_url": "OpenLLM-Ro/ro_dpo_helpsteer",
     "ranking": "true",
     "columns": {
       "prompt": "prompt",
