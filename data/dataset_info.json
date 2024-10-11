@@ -87,7 +87,7 @@
   },
 
   "ro_sft_ultrachat": {
-    "hf_hub_url": "OpenLLM-Ro/ro_sft_ultrachat",
+    "script_url": "ro_sft_ultrachat",
     "formatting": "sharegpt"
   },
 
