@@ -1,4 +1,4 @@
-# Copyright 2024 the LlamaFactory team.
+# Copyright 2025 the LlamaFactory team.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -62,8 +62,8 @@ def replace_model(model: "AutoModelForCausalLMWithValueHead", target: Literal["d
             setattr(model, "default_head_bias", v_head_layer.bias.data.detach().clone())
 
         device = v_head_layer.weight.device
-        v_head_layer.weight.data = model.get_buffer("{}_head_weight".format(target)).detach().clone().to(device)
-        v_head_layer.bias.data = model.get_buffer("{}_head_bias".format(target)).detach().clone().to(device)
+        v_head_layer.weight.data = model.get_buffer(f"{target}_head_weight").detach().clone().to(device)
+        v_head_layer.bias.data = model.get_buffer(f"{target}_head_bias").detach().clone().to(device)
 
 
 def dump_layernorm(model: "PreTrainedModel") -> Dict[str, "torch.Tensor"]:

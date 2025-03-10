@@ -23,35 +23,34 @@ Official code used for training Romanian LLMs as proposed in [Masala et al. 2024
 
 | Mandatory    | Minimum | Recommend |
 | ------------ | ------- | --------- |
-| python       | 3.8     | 3.11      |
-| torch        | 1.13.1  | 2.4.0     |
-| transformers | 4.41.2  | 4.43.4    |
-| datasets     | 2.16.0  | 2.20.0    |
-| accelerate   | 0.30.1  | 0.32.0    |
+| python       | 3.9     | 3.10      |
+| torch        | 1.13.1  | 2.5.1     |
+| transformers | 4.41.2  | 4.49.0    |
+| datasets     | 2.16.0  | 3.2.0     |
+| accelerate   | 0.34.0  | 1.2.1     |
 | peft         | 0.11.1  | 0.12.0    |
 | trl          | 0.8.6   | 0.9.6     |
 
 | Optional     | Minimum | Recommend |
 | ------------ | ------- | --------- |
 | CUDA         | 11.6    | 12.2      |
-| deepspeed    | 0.10.0  | 0.14.0    |
+| deepspeed    | 0.10.0  | 0.16.4    |
 | bitsandbytes | 0.39.0  | 0.43.1    |
-| vllm         | 0.4.3   | 0.5.0     |
-| flash-attn   | 2.3.0   | 2.6.3     |
+| vllm         | 0.4.3   | 0.7.3     |
+| flash-attn   | 2.3.0   | 2.7.2     |
 
 ### Hardware Requirement
 
 \* *estimated*
 
-| Method            | Bits |   7B  |  13B  |  30B  |   70B  |  110B  |  8x7B |  8x22B |
-| ----------------- | ---- | ----- | ----- | ----- | ------ | ------ | ----- | ------ |
-| Full              | AMP  | 120GB | 240GB | 600GB | 1200GB | 2000GB | 900GB | 2400GB |
-| Full              |  16  |  60GB | 120GB | 300GB |  600GB |  900GB | 400GB | 1200GB |
-| Freeze            |  16  |  20GB |  40GB |  80GB |  200GB |  360GB | 160GB |  400GB |
-| LoRA/GaLore/BAdam |  16  |  16GB |  32GB |  64GB |  160GB |  240GB | 120GB |  320GB |
-| QLoRA             |   8  |  10GB |  20GB |  40GB |   80GB |  140GB |  60GB |  160GB |
-| QLoRA             |   4  |   6GB |  12GB |  24GB |   48GB |   72GB |  30GB |   96GB |
-| QLoRA             |   2  |   4GB |   8GB |  16GB |   24GB |   48GB |  18GB |   48GB |
+| Method                          | Bits |   7B  |  14B  |  30B  |   70B  |   `x`B  |
+| ------------------------------- | ---- | ----- | ----- | ----- | ------ | ------- |
+| Full (`bf16` or `fp16`)         |  32  | 120GB | 240GB | 600GB | 1200GB | `18x`GB |
+| Full (`pure_bf16`)              |  16  |  60GB | 120GB | 300GB |  600GB |  `8x`GB |
+| Freeze/LoRA/GaLore/APOLLO/BAdam |  16  |  16GB |  32GB |  64GB |  160GB |  `2x`GB |
+| QLoRA                           |   8  |  10GB |  20GB |  40GB |   80GB |   `x`GB |
+| QLoRA                           |   4  |   6GB |  12GB |  24GB |   48GB | `x/2`GB |
+| QLoRA                           |   2  |   4GB |   8GB |  16GB |   24GB | `x/4`GB |
 
 ## Getting Started
 
@@ -66,14 +65,14 @@ cd LLaMA-Factory
 pip install -e ".[torch,metrics]"
 ```
 
-Extra dependencies available: torch, torch-npu, metrics, deepspeed, liger-kernel, bitsandbytes, hqq, eetq, gptq, awq, aqlm, vllm, galore, badam, adam-mini, qwen, modelscope, quality
+Extra dependencies available: torch, torch-npu, metrics, deepspeed, liger-kernel, bitsandbytes, hqq, eetq, gptq, awq, aqlm, vllm, galore, apollo, badam, adam-mini, qwen, minicpm_v, modelscope, openmind, swanlab, quality
 
 > [!TIP]
 > Use `pip install --no-deps -e .` to resolve package conflicts.
 
 ### Data Preparation
 
-Please refer to [data/README.md](data/README.md) for checking the details about the format of dataset files. You can either use datasets on HuggingFace / ModelScope hub or load the dataset in local disk.
+Please refer to [data/README.md](data/README.md) for checking the details about the format of dataset files. You can either use datasets on HuggingFace / ModelScope / Modelers hub or load the dataset in local disk.
 
 > [!NOTE]
 > Please update `data/dataset_info.json` to use your custom dataset.
@@ -103,6 +102,21 @@ run_name: test_run # optional
 ```
 
 Set `WANDB_API_KEY` to [your key](https://wandb.ai/authorize) when launching training tasks to log in with your W&B account.
+
+### Use SwanLab Logger
+
+To use [SwanLab](https://github.com/SwanHubX/SwanLab) for logging experimental results, you need to add the following arguments to yaml files.
+
+```yaml
+use_swanlab: true
+swanlab_run_name: test_run # optional
+```
+
+When launching training tasks, you can log in to SwanLab in three ways:
+
+1. Add `swanlab_api_key=<your_api_key>` to the yaml file, and set it to your [API key](https://swanlab.cn/settings).
+2. Set the environment variable `SWANLAB_API_KEY` to your [API key](https://swanlab.cn/settings).
+3. Use the `swanlab login` command to complete the login.
 
 
 ## Citation

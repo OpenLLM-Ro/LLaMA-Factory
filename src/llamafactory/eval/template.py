@@ -1,4 +1,4 @@
-# Copyright 2024 the LlamaFactory team.
+# Copyright 2025 the LlamaFactory team.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -61,7 +61,7 @@ def _register_eval_template(name: str, system: str, choice: str, answer: str) ->
 
 def get_eval_template(name: str) -> "EvalTemplate":
     eval_template = eval_templates.get(name, None)
-    assert eval_template is not None, "Template {} does not exist.".format(name)
+    assert eval_template is not None, f"Template {name} does not exist."
     return eval_template
 
 

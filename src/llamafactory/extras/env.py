@@ -26,7 +26,7 @@ import trl
 from transformers.utils import is_torch_cuda_available, is_torch_npu_available
 
 
-VERSION = "0.9.1.dev0"
+VERSION = "0.9.2.dev0"
 
 
 def print_env() -> None:
@@ -45,6 +45,8 @@ def print_env() -> None:
     if is_torch_cuda_available():
         info["PyTorch version"] += " (GPU)"
         info["GPU type"] = torch.cuda.get_device_name()
+        info["GPU number"] = torch.cuda.device_count()
+        info["GPU memory"] = f"{torch.cuda.mem_get_info()[1] / (1024**3):.2f}GB"
 
     if is_torch_npu_available():
         info["PyTorch version"] += " (NPU)"
@@ -59,7 +61,7 @@ def print_env() -> None:
         pass
 
     try:
-        import bitsandbytes
+        import bitsandbytes  # type: ignore
 
         info["Bitsandbytes version"] = bitsandbytes.__version__
     except Exception:
@@ -72,4 +74,4 @@ def print_env() -> None:
     except Exception:
         pass
 
-    print("\n" + "\n".join(["- {}: {}".format(key, value) for key, value in info.items()]) + "\n")
+    print("\n" + "\n".join([f"- {key}: {value}" for key, value in info.items()]) + "\n")

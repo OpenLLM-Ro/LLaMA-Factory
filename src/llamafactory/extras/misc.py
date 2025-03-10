@@ -17,9 +17,10 @@
 
 import gc
 import os
-from typing import TYPE_CHECKING, Tuple, Union
+from typing import TYPE_CHECKING, Any, Dict, Literal, Sequence, Tuple, Union
 
 import torch
+import torch.distributed as dist
 import transformers.dynamic_module_utils
 from transformers import InfNanRemoveLogitsProcessor, LogitsProcessorList
 from transformers.dynamic_module_utils import get_relative_imports
@@ -32,7 +33,8 @@ from transformers.utils import (
 )
 from transformers.utils.versions import require_version
 
-from .logging import get_logger
+from . import logging
+from .packages import is_transformers_version_greater_than
 
 
 _is_fp16_available = is_torch_npu_available() or is_torch_cuda_available()
@@ -48,7 +50,7 @@ if TYPE_CHECKING:
     from ..hparams import ModelArguments
 
 
-logger = get_logger(__name__)
+logger = logging.get_logger(__name__)
 
 
 class AverageMeter:
@@ -72,18 +74,48 @@ class AverageMeter:
         self.avg = self.sum / self.count
 
 
+def check_version(requirement: str, mandatory: bool = False) -> None:
+    r"""
+    Optionally checks the package version.
+    """
+    if is_env_enabled("DISABLE_VERSION_CHECK") and not mandatory:
+        logger.warning_rank0_once("Version checking has been disabled, may lead to unexpected behaviors.")
+        return
+
+    if mandatory:
+        hint = f"To fix: run `pip install {requirement}`."
+    else:
+        hint = f"To fix: run `pip install {requirement}` or set `DISABLE_VERSION_CHECK=1` to skip this check."
+
+    require_version(requirement, hint)
+
+
 def check_dependencies() -> None:
     r"""
     Checks the version of the required packages.
     """
-    if os.environ.get("DISABLE_VERSION_CHECK", "0").lower() in ["true", "1"]:
-        logger.warning("Version checking has been disabled, may lead to unexpected behaviors.")
-    else:
-        require_version("transformers>=4.41.2,<=4.45.0", "To fix: pip install transformers>=4.41.2,<=4.45.0")
-        require_version("datasets>=2.16.0,<=2.21.0", "To fix: pip install datasets>=2.16.0,<=2.21.0")
-        require_version("accelerate>=0.30.1,<=0.34.2", "To fix: pip install accelerate>=0.30.1,<=0.34.2")
-        require_version("peft>=0.11.1,<=0.12.0", "To fix: pip install peft>=0.11.1,<=0.12.0")
-        require_version("trl>=0.8.6,<=0.9.6", "To fix: pip install trl>=0.8.6,<=0.9.6")
+    check_version("transformers>=4.41.2,<=4.49.0,!=4.46.0,!=4.46.1,!=4.46.2,!=4.46.3,!=4.47.0,!=4.47.1,!=4.48.0")
+    check_version("datasets>=2.16.0,<=3.2.0")
+    check_version("accelerate>=0.34.0,<=1.2.1")
+    check_version("peft>=0.11.1,<=0.12.0")
+    check_version("trl>=0.8.6,<=0.9.6")
+    if is_transformers_version_greater_than("4.46.0") and not is_transformers_version_greater_than("4.48.1"):
+        logger.warning_rank0_once("There are known bugs in transformers v4.46.0-v4.48.0, please use other versions.")
+
+
+def calculate_tps(dataset: Sequence[Dict[str, Any]], metrics: Dict[str, float], stage: Literal["sft", "rm"]) -> float:
+    r"""
+    Calculates effective tokens per second.
+    """
+    effective_token_num = 0
+    for data in dataset:
+        if stage == "sft":
+            effective_token_num += len(data["input_ids"])
+        elif stage == "rm":
+            effective_token_num += len(data["chosen_input_ids"]) + len(data["rejected_input_ids"])
+
+    result = effective_token_num * metrics["epoch"] / metrics["train_runtime"]
+    return result / dist.get_world_size() if dist.is_initialized() else result
 
 
 def count_parameters(model: "torch.nn.Module") -> Tuple[int, int]:
@@ -194,6 +226,13 @@ def is_gpu_or_npu_available() -> bool:
     return is_torch_npu_available() or is_torch_cuda_available()
 
 
+def is_env_enabled(env_var: str, default: str = "0") -> bool:
+    r"""
+    Checks if the environment variable is enabled.
+    """
+    return os.getenv(env_var, default).lower() in ["true", "y", "1"]
+
+
 def numpify(inputs: Union["NDArray", "torch.Tensor"]) -> "NDArray":
     r"""
     Casts a torch tensor or a numpy array to a numpy array.
@@ -212,7 +251,7 @@ def skip_check_imports() -> None:
     r"""
     Avoids flash attention import error in custom model files.
     """
-    if os.environ.get("FORCE_CHECK_IMPORTS", "0").lower() not in ["true", "1"]:
+    if not is_env_enabled("FORCE_CHECK_IMPORTS"):
         transformers.dynamic_module_utils.check_imports = get_relative_imports
 
 
@@ -231,18 +270,39 @@ def torch_gc() -> None:
         torch.cuda.empty_cache()
 
 
-def try_download_model_from_ms(model_args: "ModelArguments") -> str:
-    if not use_modelscope() or os.path.exists(model_args.model_name_or_path):
+def try_download_model_from_other_hub(model_args: "ModelArguments") -> str:
+    if (not use_modelscope() and not use_openmind()) or os.path.exists(model_args.model_name_or_path):
         return model_args.model_name_or_path
 
-    try:
-        from modelscope import snapshot_download
+    if use_modelscope():
+        check_version("modelscope>=1.11.0", mandatory=True)
+        from modelscope import snapshot_download  # type: ignore
 
         revision = "master" if model_args.model_revision == "main" else model_args.model_revision
-        return snapshot_download(model_args.model_name_or_path, revision=revision, cache_dir=model_args.cache_dir)
-    except ImportError:
-        raise ImportError("Please install modelscope via `pip install modelscope -U`")
+        return snapshot_download(
+            model_args.model_name_or_path,
+            revision=revision,
+            cache_dir=model_args.cache_dir,
+        )
+
+    if use_openmind():
+        check_version("openmind>=0.8.0", mandatory=True)
+        from openmind.utils.hub import snapshot_download  # type: ignore
+
+        return snapshot_download(
+            model_args.model_name_or_path,
+            revision=model_args.model_revision,
+            cache_dir=model_args.cache_dir,
+        )
 
 
 def use_modelscope() -> bool:
-    return os.environ.get("USE_MODELSCOPE_HUB", "0").lower() in ["true", "1"]
+    return is_env_enabled("USE_MODELSCOPE_HUB")
+
+
+def use_openmind() -> bool:
+    return is_env_enabled("USE_OPENMIND_HUB")
+
+
+def use_ray() -> bool:
+    return is_env_enabled("USE_RAY")

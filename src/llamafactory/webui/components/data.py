@@ -1,4 +1,4 @@
-# Copyright 2024 the LlamaFactory team.
+# Copyright 2025 the LlamaFactory team.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -40,8 +40,11 @@ def next_page(page_index: int, total_num: int) -> int:
 
 
 def can_preview(dataset_dir: str, dataset: list) -> "gr.Button":
+    r"""
+    Checks if the dataset is a local dataset.
+    """
     try:
-        with open(os.path.join(dataset_dir, DATA_CONFIG), "r", encoding="utf-8") as f:
+        with open(os.path.join(dataset_dir, DATA_CONFIG), encoding="utf-8") as f:
             dataset_info = json.load(f)
     except Exception:
         return gr.Button(interactive=False)
@@ -57,7 +60,7 @@ def can_preview(dataset_dir: str, dataset: list) -> "gr.Button":
 
 
 def _load_data_file(file_path: str) -> List[Any]:
-    with open(file_path, "r", encoding="utf-8") as f:
+    with open(file_path, encoding="utf-8") as f:
         if file_path.endswith(".json"):
             return json.load(f)
         elif file_path.endswith(".jsonl"):
@@ -67,7 +70,10 @@ def _load_data_file(file_path: str) -> List[Any]:
 
 
 def get_preview(dataset_dir: str, dataset: list, page_index: int) -> Tuple[int, list, "gr.Column"]:
-    with open(os.path.join(dataset_dir, DATA_CONFIG), "r", encoding="utf-8") as f:
+    r"""
+    Gets the preview samples from the dataset.
+    """
+    with open(os.path.join(dataset_dir, DATA_CONFIG), encoding="utf-8") as f:
         dataset_info = json.load(f)
 
     data_path = os.path.join(dataset_dir, dataset_info[dataset[0]]["file_name"])
