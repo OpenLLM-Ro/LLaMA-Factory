@@ -30,8 +30,8 @@ class PretrainDatasetProcessor(DatasetProcessor):
         text_examples = [messages[0]["content"] + eos_token for messages in examples["_prompt"]]
 
         if not self.data_args.packing:
-            if getattr(self.tokenizer, "add_bos_token", False):
-                text_examples = [self.tokenizer.bos_token + example for example in text_examples]
+            # if getattr(self.tokenizer, "add_bos_token", False):
+            text_examples = [self.tokenizer.bos_token + example for example in text_examples]
 
             result = self.tokenizer(
                 text_examples, add_special_tokens=False, truncation=True, max_length=self.data_args.cutoff_len
