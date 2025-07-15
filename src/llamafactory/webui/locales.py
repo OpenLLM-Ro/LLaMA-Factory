@@ -13,8 +13,6 @@
 # limitations under the License.
 
 LOCALES = {
-<<<<<<< HEAD
-=======
     "title": {
         "en": {
             "value": "<h1><center>🦙🏭LLaMA Factory: Unified Efficient Fine-Tuning of 100+ LLMs</center></h1>",
@@ -64,7 +62,6 @@ LOCALES = {
             ),
         },
     },
->>>>>>> upstream/main
     "lang": {
         "en": {
             "label": "Language",
@@ -126,8 +123,6 @@ LOCALES = {
             "info": "事前学習済みモデルへのパス、または Hugging Face のモデル識別子。",
         },
     },
-<<<<<<< HEAD
-=======
     "hub_name": {
         "en": {
             "label": "Hub name",
@@ -150,7 +145,6 @@ LOCALES = {
             "info": "モデルをダウンロードするためのソースを選択してください。",
         },
     },
->>>>>>> upstream/main
     "finetuning_type": {
         "en": {
             "label": "Finetuning method",
@@ -948,8 +942,6 @@ LOCALES = {
             "info": "拡張ブロックのパラメータのみをトレーニングします。",
         },
     },
-<<<<<<< HEAD
-=======
     "enable_thinking": {
         "en": {
             "label": "Enable thinking",
@@ -972,7 +964,6 @@ LOCALES = {
             "info": "推論モデルの思考モードを有効にするかどうか。",
         },
     },
->>>>>>> upstream/main
     "report_to": {
         "en": {
             "label": "Enable external logger",
@@ -1476,8 +1467,6 @@ LOCALES = {
             "info": "PPO トレーニングにおいて報酬スコアをホワイトニング処理します。",
         },
     },
-<<<<<<< HEAD
-=======
     "mm_tab": {
         "en": {
             "label": "Multimodal configurations",
@@ -1649,7 +1638,6 @@ LOCALES = {
             "info": "ビデオ入力の最小ピクセル数です。",
         },
     },
->>>>>>> upstream/main
     "galore_tab": {
         "en": {
             "label": "GaLore configurations",
@@ -2932,8 +2920,6 @@ LOCALES = {
             "value": "エクスポート",
         },
     },
-<<<<<<< HEAD
-=======
     "device_memory": {
         "en": {
             "label": "Device memory",
@@ -2956,7 +2942,6 @@ LOCALES = {
             "info": "現在のデバイスのメモリ（GB）。",
         },
     },
->>>>>>> upstream/main
 }
 
 
@@ -3080,8 +3065,6 @@ ALERTS = {
         "ko": "출력 디렉토리가 이미 존재합니다. 위 출력 디렉토리에 저장된 학습을 재개합니다.",
         "ja": "出力ディレクトリが既に存在します。このチェックポイントからトレーニングを再開します。",
     },
-<<<<<<< HEAD
-=======
     "warn_no_instruct": {
         "en": "You are using a non-instruct model, please fine-tune it first.",
         "ru": "Вы используете модель без инструкции, пожалуйста, primeros выполните донастройку этой модели.",
@@ -3089,7 +3072,6 @@ ALERTS = {
         "ko": "당신은 지시하지 않은 모델을 사용하고 있습니다. 먼저 이를 미세 조정해 주세요.",
         "ja": "インストラクションモデルを使用していません。まずモデルをアダプターに適合させてください。",
     },
->>>>>>> upstream/main
     "info_aborting": {
         "en": "Aborted, wait for terminating...",
         "ru": "Прервано, ожидание завершения...",

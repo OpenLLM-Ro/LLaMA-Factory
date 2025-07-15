@@ -14,10 +14,6 @@
 
 import os
 import random
-<<<<<<< HEAD
-from typing import Dict, List
-=======
->>>>>>> upstream/main
 
 import pytest
 from datasets import load_dataset
@@ -29,17 +25,10 @@ from llamafactory.train.test_utils import load_dataset_module
 
 DEMO_DATA = os.getenv("DEMO_DATA", "llamafactory/demo_data")
 
-<<<<<<< HEAD
-TINY_LLAMA = os.getenv("TINY_LLAMA", "llamafactory/tiny-random-Llama-3")
-
-TRAIN_ARGS = {
-    "model_name_or_path": TINY_LLAMA,
-=======
 TINY_LLAMA3 = os.getenv("TINY_LLAMA3", "llamafactory/tiny-random-Llama-3")
 
 TRAIN_ARGS = {
     "model_name_or_path": TINY_LLAMA3,
->>>>>>> upstream/main
     "stage": "rm",
     "do_train": True,
     "finetuning_type": "full",
@@ -53,11 +42,7 @@ TRAIN_ARGS = {
 }
 
 
-<<<<<<< HEAD
-def _convert_sharegpt_to_openai(messages: List[Dict[str, str]]) -> List[Dict[str, str]]:
-=======
 def _convert_sharegpt_to_openai(messages: list[dict[str, str]]) -> list[dict[str, str]]:
->>>>>>> upstream/main
     role_mapping = {"human": "user", "gpt": "assistant", "system": "system"}
     new_messages = []
     for message in messages:
@@ -69,11 +54,7 @@ def _convert_sharegpt_to_openai(messages: list[dict[str, str]]) -> list[dict[str
 @pytest.mark.parametrize("num_samples", [16])
 def test_pairwise_data(num_samples: int):
     train_dataset = load_dataset_module(**TRAIN_ARGS)["train_dataset"]
-<<<<<<< HEAD
-    ref_tokenizer = AutoTokenizer.from_pretrained(TINY_LLAMA)
-=======
     ref_tokenizer = AutoTokenizer.from_pretrained(TINY_LLAMA3)
->>>>>>> upstream/main
     original_data = load_dataset(DEMO_DATA, name="dpo_en_demo", split="train")
     indexes = random.choices(range(len(original_data)), k=num_samples)
     for index in indexes:

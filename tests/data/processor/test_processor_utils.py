@@ -12,10 +12,6 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-<<<<<<< HEAD
-from typing import Tuple
-=======
->>>>>>> upstream/main
 
 import pytest
 
@@ -34,9 +30,5 @@ from llamafactory.data.processor.processor_utils import infer_seqlen
         ((10, 10, 1000), (10, 10)),
     ],
 )
-<<<<<<< HEAD
-def test_infer_seqlen(test_input: Tuple[int, int, int], test_output: Tuple[int, int]):
-=======
 def test_infer_seqlen(test_input: tuple[int, int, int], test_output: tuple[int, int]):
->>>>>>> upstream/main
     assert test_output == infer_seqlen(*test_input)

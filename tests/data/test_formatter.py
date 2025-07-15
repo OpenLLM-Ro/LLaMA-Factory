@@ -50,11 +50,7 @@ def test_function_formatter():
     formatter = FunctionFormatter(slots=["{{content}}", "</s>"], tool_format="default")
     tool_calls = json.dumps(FUNCTION)
     assert formatter.apply(content=tool_calls) == [
-<<<<<<< HEAD
-        """Action: tool_name\nAction Input: {"foo": "bar", "size": 10}\n""",
-=======
         """Action: tool_name\nAction Input: {"foo": "bar", "size": 10}""",
->>>>>>> upstream/main
         "</s>",
     ]
 
@@ -64,11 +60,7 @@ def test_multi_function_formatter():
     tool_calls = json.dumps([FUNCTION] * 2)
     assert formatter.apply(content=tool_calls) == [
         """Action: tool_name\nAction Input: {"foo": "bar", "size": 10}\n"""
-<<<<<<< HEAD
-        """Action: tool_name\nAction Input: {"foo": "bar", "size": 10}\n""",
-=======
         """Action: tool_name\nAction Input: {"foo": "bar", "size": 10}""",
->>>>>>> upstream/main
         "</s>",
     ]
 
@@ -93,11 +85,7 @@ def test_default_tool_formatter():
 
 def test_default_tool_extractor():
     formatter = ToolFormatter(tool_format="default")
-<<<<<<< HEAD
-    result = """Action: test_tool\nAction Input: {"foo": "bar", "size": 10}\n"""
-=======
     result = """Action: test_tool\nAction Input: {"foo": "bar", "size": 10}"""
->>>>>>> upstream/main
     assert formatter.extract(result) == [("test_tool", """{"foo": "bar", "size": 10}""")]
 
 
@@ -105,11 +93,7 @@ def test_default_multi_tool_extractor():
     formatter = ToolFormatter(tool_format="default")
     result = (
         """Action: test_tool\nAction Input: {"foo": "bar", "size": 10}\n"""
-<<<<<<< HEAD
-        """Action: another_tool\nAction Input: {"foo": "job", "size": 2}\n"""
-=======
         """Action: another_tool\nAction Input: {"foo": "job", "size": 2}"""
->>>>>>> upstream/main
     )
     assert formatter.extract(result) == [
         ("test_tool", """{"foo": "bar", "size": 10}"""),
@@ -126,16 +110,10 @@ def test_glm4_function_formatter():
 def test_glm4_tool_formatter():
     formatter = ToolFormatter(tool_format="glm4")
     assert formatter.apply(content=json.dumps(TOOLS)) == [
-<<<<<<< HEAD
-        "你是一个名为 ChatGLM 的人工智能助手。你是基于智谱AI训练的语言模型 GLM-4 模型开发的，"
-        "你的任务是针对用户的问题和要求提供适当的答复和支持。# 可用工具\n\n"
-        f"## test_tool\n\n{json.dumps(TOOLS[0], indent=4, ensure_ascii=False)}\n在调用上述函数时，请使用 Json 格式表示调用的参数。"
-=======
         "你是一个名为 ChatGLM 的人工智能助手。你是基于智谱 AI 公司训练的语言模型 GLM-4 模型开发的，"
         "你的任务是针对用户的问题和要求提供适当的答复和支持。\n\n# 可用工具\n\n"
         f"## test_tool\n\n{json.dumps(TOOLS[0], indent=4, ensure_ascii=False)}\n"
         "在调用上述函数时，请使用 Json 格式表示调用的参数。"
->>>>>>> upstream/main
     ]
 
 
@@ -147,18 +125,12 @@ def test_glm4_tool_extractor():
 
 def test_llama3_function_formatter():
     formatter = FunctionFormatter(slots=["{{content}}<|eot_id|>"], tool_format="llama3")
-<<<<<<< HEAD
-    tool_calls = json.dumps({"name": "tool_name", "arguments": {"foo": "bar", "size": 10}})
-=======
     tool_calls = json.dumps(FUNCTION)
->>>>>>> upstream/main
     assert formatter.apply(content=tool_calls) == [
         """{"name": "tool_name", "parameters": {"foo": "bar", "size": 10}}<|eot_id|>"""
     ]
 
 
-<<<<<<< HEAD
-=======
 def test_llama3_multi_function_formatter():
     formatter = FunctionFormatter(slots=["{{content}}<|eot_id|>"], tool_format="llama3")
     tool_calls = json.dumps([FUNCTION] * 2)
@@ -169,19 +141,14 @@ def test_llama3_multi_function_formatter():
     ]
 
 
->>>>>>> upstream/main
 def test_llama3_tool_formatter():
     formatter = ToolFormatter(tool_format="llama3")
     date = datetime.now().strftime("%d %b %Y")
     wrapped_tool = {"type": "function", "function": TOOLS[0]}
     assert formatter.apply(content=json.dumps(TOOLS)) == [
         f"Cutting Knowledge Date: December 2023\nToday Date: {date}\n\n"
-<<<<<<< HEAD
-        "You have access to the following functions. To call a function, please respond with JSON for a function call. "
-=======
         "You have access to the following functions. "
         "To call a function, please respond with JSON for a function call. "
->>>>>>> upstream/main
         """Respond in the format {"name": function name, "parameters": dictionary of argument name and its value}. """
         f"Do not use variables.\n\n{json.dumps(wrapped_tool, indent=4, ensure_ascii=False)}\n\n"
     ]
@@ -193,8 +160,6 @@ def test_llama3_tool_extractor():
     assert formatter.extract(result) == [("test_tool", """{"foo": "bar", "size": 10}""")]
 
 
-<<<<<<< HEAD
-=======
 def test_llama3_multi_tool_extractor():
     formatter = ToolFormatter(tool_format="llama3")
     result = (
@@ -207,7 +172,6 @@ def test_llama3_multi_tool_extractor():
     ]
 
 
->>>>>>> upstream/main
 def test_mistral_function_formatter():
     formatter = FunctionFormatter(slots=["[TOOL_CALLS] {{content}}", "</s>"], tool_format="mistral")
     tool_calls = json.dumps(FUNCTION)

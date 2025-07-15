@@ -21,17 +21,10 @@ from llamafactory.extras.misc import get_current_device
 from llamafactory.train.test_utils import load_train_model
 
 
-<<<<<<< HEAD
-TINY_LLAMA = os.getenv("TINY_LLAMA", "llamafactory/tiny-random-Llama-3")
-
-TRAIN_ARGS = {
-    "model_name_or_path": TINY_LLAMA,
-=======
 TINY_LLAMA3 = os.getenv("TINY_LLAMA3", "llamafactory/tiny-random-Llama-3")
 
 TRAIN_ARGS = {
     "model_name_or_path": TINY_LLAMA3,
->>>>>>> upstream/main
     "stage": "sft",
     "do_train": True,
     "finetuning_type": "lora",
@@ -69,9 +62,5 @@ def test_upcast_layernorm():
 def test_upcast_lmhead_output():
     model = load_train_model(upcast_lmhead_output=True, **TRAIN_ARGS)
     inputs = torch.randn((1, 16), dtype=torch.float16, device=get_current_device())
-<<<<<<< HEAD
-    outputs: "torch.Tensor" = model.get_output_embeddings()(inputs)
-=======
     outputs: torch.Tensor = model.get_output_embeddings()(inputs)
->>>>>>> upstream/main
     assert outputs.dtype == torch.float32

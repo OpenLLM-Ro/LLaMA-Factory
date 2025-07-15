@@ -12,19 +12,13 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-<<<<<<< HEAD
-=======
 import os
 
->>>>>>> upstream/main
 import pytest
 import torch
 from transformers import AutoConfig, AutoModelForVision2Seq
 
-<<<<<<< HEAD
-=======
 from llamafactory.extras.packages import is_transformers_version_greater_than
->>>>>>> upstream/main
 from llamafactory.hparams import FinetuningArguments, ModelArguments
 from llamafactory.model.adapter import init_adapter
 
@@ -54,19 +48,12 @@ def test_visual_full(freeze_vision_tower: bool, freeze_multi_modal_projector: bo
             assert param.requires_grad != freeze_language_model
 
 
-<<<<<<< HEAD
-@pytest.mark.parametrize("freeze_vision_tower", (False, True))
-def test_visual_lora(freeze_vision_tower: bool):
-    model_args = ModelArguments(model_name_or_path="Qwen/Qwen2-VL-2B-Instruct")
-    finetuning_args = FinetuningArguments(finetuning_type="lora", freeze_vision_tower=freeze_vision_tower)
-=======
 @pytest.mark.parametrize("freeze_vision_tower,freeze_language_model", ((False, False), (False, True), (True, False)))
 def test_visual_lora(freeze_vision_tower: bool, freeze_language_model: bool):
     model_args = ModelArguments(model_name_or_path="Qwen/Qwen2-VL-2B-Instruct")
     finetuning_args = FinetuningArguments(
         finetuning_type="lora", freeze_vision_tower=freeze_vision_tower, freeze_language_model=freeze_language_model
     )
->>>>>>> upstream/main
     config = AutoConfig.from_pretrained(model_args.model_name_or_path)
     with torch.device("meta"):
         model = AutoModelForVision2Seq.from_config(config)
@@ -79,15 +66,6 @@ def test_visual_lora(freeze_vision_tower: bool, freeze_language_model: bool):
         else:
             frozen_params.add(name)
 
-<<<<<<< HEAD
-    if freeze_vision_tower:
-        assert "base_model.model.visual.blocks.0.attn.qkv.lora_A.default.weight" not in trainable_params
-    else:
-        assert "base_model.model.visual.blocks.0.attn.qkv.lora_A.default.weight" in trainable_params
-
-    assert "merger" not in trainable_params
-    assert "base_model.model.model.layers.0.self_attn.q_proj.lora_A.default.weight" in trainable_params
-=======
     if is_transformers_version_greater_than("4.52.0"):
         visual_param_name = "base_model.model.model.visual.blocks.0.attn.qkv.lora_A.default.weight"
         language_param_name = "base_model.model.model.language_model.layers.0.self_attn.q_proj.lora_A.default.weight"
@@ -122,4 +100,3 @@ def test_visual_model_save_load():
         assert "model.layers.0.self_attn.q_proj.weight" in loaded_model_weight
 
     assert "model.layers.0.self_attn.q_proj.weight" in saved_model_weight
->>>>>>> upstream/main

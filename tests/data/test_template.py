@@ -13,11 +13,7 @@
 # limitations under the License.
 
 import os
-<<<<<<< HEAD
-from typing import TYPE_CHECKING, Sequence
-=======
 from typing import TYPE_CHECKING
->>>>>>> upstream/main
 
 import pytest
 from transformers import AutoTokenizer
@@ -33,12 +29,8 @@ if TYPE_CHECKING:
 
 HF_TOKEN = os.getenv("HF_TOKEN")
 
-<<<<<<< HEAD
-TINY_LLAMA = os.getenv("TINY_LLAMA", "llamafactory/tiny-random-Llama-3")
-=======
 TINY_LLAMA3 = os.getenv("TINY_LLAMA3", "llamafactory/tiny-random-Llama-3")
 TINY_LLAMA4 = os.getenv("TINY_LLAMA4", "llamafactory/tiny-random-Llama-4")
->>>>>>> upstream/main
 
 MESSAGES = [
     {"role": "user", "content": "How are you"},
@@ -47,14 +39,6 @@ MESSAGES = [
     {"role": "assistant", "content": "很高兴认识你！"},
 ]
 
-<<<<<<< HEAD
-
-def _check_tokenization(
-    tokenizer: "PreTrainedTokenizer", batch_input_ids: Sequence[Sequence[int]], batch_text: Sequence[str]
-) -> None:
-    r"""
-    Checks token ids and texts.
-=======
 MESSAGES_WITH_THOUGHT = [
     {"role": "user", "content": "How are you"},
     {"role": "assistant", "content": "<think>\nModel thought here\n</think>\n\nI am fine!"},
@@ -67,7 +51,6 @@ def _check_tokenization(
     tokenizer: "PreTrainedTokenizer", batch_input_ids: list[list[int]], batch_text: list[str]
 ) -> None:
     r"""Check token ids and texts.
->>>>>>> upstream/main
 
     encode(text) == token_ids
     decode(token_ids) == text
@@ -77,11 +60,6 @@ def _check_tokenization(
         assert tokenizer.decode(input_ids) == text
 
 
-<<<<<<< HEAD
-def _check_template(model_id: str, template_name: str, prompt_str: str, answer_str: str, use_fast: bool) -> None:
-    r"""
-    Checks template.
-=======
 def _check_template(
     model_id: str,
     template_name: str,
@@ -91,7 +69,6 @@ def _check_template(
     messages: list[dict[str, str]] = MESSAGES,
 ) -> None:
     r"""Check template.
->>>>>>> upstream/main
 
     Args:
         model_id: the model id on hugging face hub.
@@ -99,14 +76,6 @@ def _check_template(
         prompt_str: the string corresponding to the prompt part.
         answer_str: the string corresponding to the answer part.
         use_fast: whether to use fast tokenizer.
-<<<<<<< HEAD
-    """
-    tokenizer = AutoTokenizer.from_pretrained(model_id, use_fast=use_fast, token=HF_TOKEN)
-    content_str = tokenizer.apply_chat_template(MESSAGES, tokenize=False)
-    content_ids = tokenizer.apply_chat_template(MESSAGES, tokenize=True)
-    template = get_template_and_fix_tokenizer(tokenizer, DataArguments(template=template_name))
-    prompt_ids, answer_ids = template.encode_oneturn(tokenizer, MESSAGES)
-=======
         messages: the list of messages.
 
     """
@@ -115,7 +84,6 @@ def _check_template(
     content_ids = tokenizer.apply_chat_template(messages, tokenize=True)
     template = get_template_and_fix_tokenizer(tokenizer, DataArguments(template=template_name))
     prompt_ids, answer_ids = template.encode_oneturn(tokenizer, messages)
->>>>>>> upstream/main
     assert content_str == prompt_str + answer_str
     assert content_ids == prompt_ids + answer_ids
     _check_tokenization(tokenizer, (prompt_ids, answer_ids), (prompt_str, answer_str))
@@ -123,11 +91,7 @@ def _check_template(
 
 @pytest.mark.parametrize("use_fast", [True, False])
 def test_encode_oneturn(use_fast: bool):
-<<<<<<< HEAD
-    tokenizer = AutoTokenizer.from_pretrained(TINY_LLAMA, use_fast=use_fast)
-=======
     tokenizer = AutoTokenizer.from_pretrained(TINY_LLAMA3, use_fast=use_fast)
->>>>>>> upstream/main
     template = get_template_and_fix_tokenizer(tokenizer, DataArguments(template="llama3"))
     prompt_ids, answer_ids = template.encode_oneturn(tokenizer, MESSAGES)
     prompt_str = (
@@ -142,11 +106,7 @@ def test_encode_oneturn(use_fast: bool):
 
 @pytest.mark.parametrize("use_fast", [True, False])
 def test_encode_multiturn(use_fast: bool):
-<<<<<<< HEAD
-    tokenizer = AutoTokenizer.from_pretrained(TINY_LLAMA, use_fast=use_fast)
-=======
     tokenizer = AutoTokenizer.from_pretrained(TINY_LLAMA3, use_fast=use_fast)
->>>>>>> upstream/main
     template = get_template_and_fix_tokenizer(tokenizer, DataArguments(template="llama3"))
     encoded_pairs = template.encode_multiturn(tokenizer, MESSAGES)
     prompt_str_1 = (
@@ -166,11 +126,6 @@ def test_encode_multiturn(use_fast: bool):
 
 
 @pytest.mark.parametrize("use_fast", [True, False])
-<<<<<<< HEAD
-def test_jinja_template(use_fast: bool):
-    tokenizer = AutoTokenizer.from_pretrained(TINY_LLAMA, use_fast=use_fast)
-    ref_tokenizer = AutoTokenizer.from_pretrained(TINY_LLAMA, use_fast=use_fast)
-=======
 @pytest.mark.parametrize("cot_messages", [True, False])
 @pytest.mark.parametrize("enable_thinking", [True, False, None])
 def test_reasoning_encode_oneturn(use_fast: bool, cot_messages: bool, enable_thinking: bool):
@@ -229,7 +184,6 @@ def test_reasoning_encode_multiturn(use_fast: bool, cot_messages: bool, enable_t
 def test_jinja_template(use_fast: bool):
     tokenizer = AutoTokenizer.from_pretrained(TINY_LLAMA3, use_fast=use_fast)
     ref_tokenizer = AutoTokenizer.from_pretrained(TINY_LLAMA3, use_fast=use_fast)
->>>>>>> upstream/main
     template = get_template_and_fix_tokenizer(tokenizer, DataArguments(template="llama3"))
     tokenizer.chat_template = template._get_jinja_template(tokenizer)  # llama3 template no replace
     assert tokenizer.chat_template != ref_tokenizer.chat_template
@@ -237,11 +191,7 @@ def test_jinja_template(use_fast: bool):
 
 
 def test_ollama_modelfile():
-<<<<<<< HEAD
-    tokenizer = AutoTokenizer.from_pretrained(TINY_LLAMA)
-=======
     tokenizer = AutoTokenizer.from_pretrained(TINY_LLAMA3)
->>>>>>> upstream/main
     template = get_template_and_fix_tokenizer(tokenizer, DataArguments(template="llama3"))
     assert template.get_ollama_modelfile(tokenizer) == (
         "# ollama modelfile auto-generated by llamafactory\n\n"
@@ -258,11 +208,7 @@ def test_ollama_modelfile():
 
 
 def test_get_stop_token_ids():
-<<<<<<< HEAD
-    tokenizer = AutoTokenizer.from_pretrained(TINY_LLAMA)
-=======
     tokenizer = AutoTokenizer.from_pretrained(TINY_LLAMA3)
->>>>>>> upstream/main
     template = get_template_and_fix_tokenizer(tokenizer, DataArguments(template="llama3"))
     assert set(template.get_stop_token_ids(tokenizer)) == {128008, 128009}
 
@@ -271,15 +217,6 @@ def test_get_stop_token_ids():
 @pytest.mark.parametrize("use_fast", [True, False])
 def test_gemma_template(use_fast: bool):
     prompt_str = (
-<<<<<<< HEAD
-        "<bos><start_of_turn>user\nHow are you<end_of_turn>\n"
-        "<start_of_turn>model\nI am fine!<end_of_turn>\n"
-        "<start_of_turn>user\n你好<end_of_turn>\n"
-        "<start_of_turn>model\n"
-    )
-    answer_str = "很高兴认识你！<end_of_turn>\n"
-    _check_template("google/gemma-2-9b-it", "gemma", prompt_str, answer_str, use_fast)
-=======
         f"<bos><start_of_turn>user\n{MESSAGES[0]['content']}<end_of_turn>\n"
         f"<start_of_turn>model\n{MESSAGES[1]['content']}<end_of_turn>\n"
         f"<start_of_turn>user\n{MESSAGES[2]['content']}<end_of_turn>\n"
@@ -300,68 +237,12 @@ def test_gemma2_template(use_fast: bool):
     )
     answer_str = f"{MESSAGES[3]['content']}<end_of_turn>\n"
     _check_template("google/gemma-2-2b-it", "gemma2", prompt_str, answer_str, use_fast)
->>>>>>> upstream/main
 
 
 @pytest.mark.skipif(not HF_TOKEN, reason="Gated model.")
 @pytest.mark.parametrize("use_fast", [True, False])
 def test_llama3_template(use_fast: bool):
     prompt_str = (
-<<<<<<< HEAD
-        "<|begin_of_text|><|start_header_id|>user<|end_header_id|>\n\nHow are you<|eot_id|>"
-        "<|start_header_id|>assistant<|end_header_id|>\n\nI am fine!<|eot_id|>"
-        "<|start_header_id|>user<|end_header_id|>\n\n你好<|eot_id|>"
-        "<|start_header_id|>assistant<|end_header_id|>\n\n"
-    )
-    answer_str = "很高兴认识你！<|eot_id|>"
-    _check_template("meta-llama/Meta-Llama-3-8B-Instruct", "llama3", prompt_str, answer_str, use_fast)
-
-
-@pytest.mark.skipif(not HF_TOKEN, reason="Gated model.")
-@pytest.mark.parametrize(
-    "use_fast", [True, pytest.param(False, marks=pytest.mark.xfail(reason="Phi-4 slow tokenizer is broken."))]
-)
-def test_phi4_template(use_fast: bool):
-    prompt_str = (
-        "<|im_start|>user<|im_sep|>How are you<|im_end|>"
-        "<|im_start|>assistant<|im_sep|>I am fine!<|im_end|>"
-        "<|im_start|>user<|im_sep|>你好<|im_end|>"
-        "<|im_start|>assistant<|im_sep|>"
-    )
-    answer_str = "很高兴认识你！<|im_end|>"
-    _check_template("microsoft/phi-4", "phi4", prompt_str, answer_str, use_fast)
-
-
-@pytest.mark.skipif(not HF_TOKEN, reason="Gated model.")  # TODO: why it is gated?
-@pytest.mark.parametrize("use_fast", [True, False])
-def test_qwen_template(use_fast: bool):
-    prompt_str = (
-        "<|im_start|>system\nYou are a helpful assistant.<|im_end|>\n"
-        "<|im_start|>user\nHow are you<|im_end|>\n"
-        "<|im_start|>assistant\nI am fine!<|im_end|>\n"
-        "<|im_start|>user\n你好<|im_end|>\n"
-        "<|im_start|>assistant\n"
-    )
-    answer_str = "很高兴认识你！<|im_end|>\n"
-    _check_template("Qwen/Qwen2-7B-Instruct", "qwen", prompt_str, answer_str, use_fast)
-
-
-@pytest.mark.parametrize("use_fast", [True, False])
-@pytest.mark.xfail(reason="Yi tokenizer is broken.")
-def test_yi_template(use_fast: bool):
-    prompt_str = (
-        "<|im_start|>user\nHow are you<|im_end|>\n"
-        "<|im_start|>assistant\nI am fine!<|im_end|>\n"
-        "<|im_start|>user\n你好<|im_end|>\n"
-        "<|im_start|>assistant\n"
-    )
-    answer_str = "很高兴认识你！<|im_end|>\n"
-    _check_template("01-ai/Yi-1.5-6B-Chat", "yi", prompt_str, answer_str, use_fast)
-
-
-def test_parse_template():
-    tokenizer = AutoTokenizer.from_pretrained(TINY_LLAMA, token=HF_TOKEN)
-=======
         f"<|begin_of_text|><|start_header_id|>user<|end_header_id|>\n\n{MESSAGES[0]['content']}<|eot_id|>"
         f"<|start_header_id|>assistant<|end_header_id|>\n\n{MESSAGES[1]['content']}<|eot_id|>"
         f"<|start_header_id|>user<|end_header_id|>\n\n{MESSAGES[2]['content']}<|eot_id|>"
@@ -438,7 +319,6 @@ def test_qwen3_template(use_fast: bool, cot_messages: bool):
 
 def test_parse_llama3_template():
     tokenizer = AutoTokenizer.from_pretrained(TINY_LLAMA3, token=HF_TOKEN)
->>>>>>> upstream/main
     template = parse_template(tokenizer)
     assert template.format_user.slots == [
         "<|start_header_id|>user<|end_header_id|>\n\n{{content}}<|eot_id|>"
@@ -450,25 +330,15 @@ def test_parse_llama3_template():
     assert template.default_system == ""
 
 
-<<<<<<< HEAD
-@pytest.mark.skipif(not HF_TOKEN, reason="Gated model.")
-def test_parse_qwen_template():
-    tokenizer = AutoTokenizer.from_pretrained("Qwen/Qwen2-7B-Instruct", token=HF_TOKEN)
-    template = parse_template(tokenizer)
-=======
 @pytest.mark.xfail(not HF_TOKEN, reason="Authorization.")
 def test_parse_qwen_template():
     tokenizer = AutoTokenizer.from_pretrained("Qwen/Qwen2.5-7B-Instruct", token=HF_TOKEN)
     template = parse_template(tokenizer)
     assert template.__class__.__name__ == "Template"
->>>>>>> upstream/main
     assert template.format_user.slots == ["<|im_start|>user\n{{content}}<|im_end|>\n<|im_start|>assistant\n"]
     assert template.format_assistant.slots == ["{{content}}<|im_end|>\n"]
     assert template.format_system.slots == ["<|im_start|>system\n{{content}}<|im_end|>\n"]
     assert template.format_prefix.slots == []
-<<<<<<< HEAD
-    assert template.default_system == "You are a helpful assistant."
-=======
     assert template.default_system == "You are Qwen, created by Alibaba Cloud. You are a helpful assistant."
 
 
@@ -482,4 +352,3 @@ def test_parse_qwen3_template():
     assert template.format_system.slots == ["<|im_start|>system\n{{content}}<|im_end|>\n"]
     assert template.format_prefix.slots == []
     assert template.default_system == ""
->>>>>>> upstream/main

@@ -21,17 +21,10 @@ from llamafactory.extras.packages import is_transformers_version_greater_than
 from llamafactory.train.test_utils import load_infer_model
 
 
-<<<<<<< HEAD
-TINY_LLAMA = os.getenv("TINY_LLAMA", "llamafactory/tiny-random-Llama-3")
-
-INFER_ARGS = {
-    "model_name_or_path": TINY_LLAMA,
-=======
 TINY_LLAMA3 = os.getenv("TINY_LLAMA3", "llamafactory/tiny-random-Llama-3")
 
 INFER_ARGS = {
     "model_name_or_path": TINY_LLAMA3,
->>>>>>> upstream/main
     "template": "llama3",
 }
 

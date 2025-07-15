@@ -19,17 +19,10 @@ import torch
 from llamafactory.train.test_utils import load_infer_model, load_train_model
 
 
-<<<<<<< HEAD
-TINY_LLAMA = os.getenv("TINY_LLAMA", "llamafactory/tiny-random-Llama-3")
-
-TRAIN_ARGS = {
-    "model_name_or_path": TINY_LLAMA,
-=======
 TINY_LLAMA3 = os.getenv("TINY_LLAMA3", "llamafactory/tiny-random-Llama-3")
 
 TRAIN_ARGS = {
     "model_name_or_path": TINY_LLAMA3,
->>>>>>> upstream/main
     "stage": "sft",
     "do_train": True,
     "finetuning_type": "freeze",
@@ -43,11 +36,7 @@ TRAIN_ARGS = {
 }
 
 INFER_ARGS = {
-<<<<<<< HEAD
-    "model_name_or_path": TINY_LLAMA,
-=======
     "model_name_or_path": TINY_LLAMA3,
->>>>>>> upstream/main
     "finetuning_type": "freeze",
     "template": "llama3",
     "infer_dtype": "float16",

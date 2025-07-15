@@ -25,20 +25,12 @@ from llamafactory.train.test_utils import load_dataset_module
 
 DEMO_DATA = os.getenv("DEMO_DATA", "llamafactory/demo_data")
 
-<<<<<<< HEAD
-TINY_LLAMA = os.getenv("TINY_LLAMA", "llamafactory/tiny-random-Llama-3")
-=======
 TINY_LLAMA3 = os.getenv("TINY_LLAMA3", "llamafactory/tiny-random-Llama-3")
->>>>>>> upstream/main
 
 TINY_DATA = os.getenv("TINY_DATA", "llamafactory/tiny-supervised-dataset")
 
 TRAIN_ARGS = {
-<<<<<<< HEAD
-    "model_name_or_path": TINY_LLAMA,
-=======
     "model_name_or_path": TINY_LLAMA3,
->>>>>>> upstream/main
     "stage": "sft",
     "do_train": True,
     "finetuning_type": "full",
@@ -53,11 +45,7 @@ TRAIN_ARGS = {
 @pytest.mark.parametrize("num_samples", [16])
 def test_supervised_single_turn(num_samples: int):
     train_dataset = load_dataset_module(dataset_dir="ONLINE", dataset=TINY_DATA, **TRAIN_ARGS)["train_dataset"]
-<<<<<<< HEAD
-    ref_tokenizer = AutoTokenizer.from_pretrained(TINY_LLAMA)
-=======
     ref_tokenizer = AutoTokenizer.from_pretrained(TINY_LLAMA3)
->>>>>>> upstream/main
     original_data = load_dataset(TINY_DATA, split="train")
     indexes = random.choices(range(len(original_data)), k=num_samples)
     for index in indexes:
@@ -78,11 +66,7 @@ def test_supervised_multi_turn(num_samples: int):
     train_dataset = load_dataset_module(dataset_dir="REMOTE:" + DEMO_DATA, dataset="system_chat", **TRAIN_ARGS)[
         "train_dataset"
     ]
-<<<<<<< HEAD
-    ref_tokenizer = AutoTokenizer.from_pretrained(TINY_LLAMA)
-=======
     ref_tokenizer = AutoTokenizer.from_pretrained(TINY_LLAMA3)
->>>>>>> upstream/main
     original_data = load_dataset(DEMO_DATA, name="system_chat", split="train")
     indexes = random.choices(range(len(original_data)), k=num_samples)
     for index in indexes:
@@ -95,11 +79,7 @@ def test_supervised_train_on_prompt(num_samples: int):
     train_dataset = load_dataset_module(
         dataset_dir="REMOTE:" + DEMO_DATA, dataset="system_chat", train_on_prompt=True, **TRAIN_ARGS
     )["train_dataset"]
-<<<<<<< HEAD
-    ref_tokenizer = AutoTokenizer.from_pretrained(TINY_LLAMA)
-=======
     ref_tokenizer = AutoTokenizer.from_pretrained(TINY_LLAMA3)
->>>>>>> upstream/main
     original_data = load_dataset(DEMO_DATA, name="system_chat", split="train")
     indexes = random.choices(range(len(original_data)), k=num_samples)
     for index in indexes:
@@ -113,11 +93,7 @@ def test_supervised_mask_history(num_samples: int):
     train_dataset = load_dataset_module(
         dataset_dir="REMOTE:" + DEMO_DATA, dataset="system_chat", mask_history=True, **TRAIN_ARGS
     )["train_dataset"]
-<<<<<<< HEAD
-    ref_tokenizer = AutoTokenizer.from_pretrained(TINY_LLAMA)
-=======
     ref_tokenizer = AutoTokenizer.from_pretrained(TINY_LLAMA3)
->>>>>>> upstream/main
     original_data = load_dataset(DEMO_DATA, name="system_chat", split="train")
     indexes = random.choices(range(len(original_data)), k=num_samples)
     for index in indexes:

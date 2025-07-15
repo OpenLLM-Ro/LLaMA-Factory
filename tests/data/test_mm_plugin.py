@@ -13,23 +13,15 @@
 # limitations under the License.
 
 import os
-<<<<<<< HEAD
-from typing import TYPE_CHECKING, Any, Dict, List, Sequence
-
-=======
 from typing import TYPE_CHECKING, Any
 
 import numpy as np
->>>>>>> upstream/main
 import pytest
 import torch
 from PIL import Image
 
 from llamafactory.data.mm_plugin import get_mm_plugin
-<<<<<<< HEAD
-=======
 from llamafactory.extras.packages import is_transformers_version_greater_than
->>>>>>> upstream/main
 from llamafactory.hparams import get_infer_args
 from llamafactory.model import load_tokenizer
 
@@ -44,20 +36,14 @@ if TYPE_CHECKING:
 
 HF_TOKEN = os.getenv("HF_TOKEN")
 
-<<<<<<< HEAD
-TINY_LLAMA = os.getenv("TINY_LLAMA", "llamafactory/tiny-random-Llama-3")
-=======
 TINY_LLAMA3 = os.getenv("TINY_LLAMA3", "llamafactory/tiny-random-Llama-3")
 TINY_LLAMA4 = os.getenv("TINY_LLAMA4", "llamafactory/tiny-random-Llama-4")
->>>>>>> upstream/main
 
 MM_MESSAGES = [
     {"role": "user", "content": "<image>What is in this image?"},
     {"role": "assistant", "content": "A cat."},
 ]
 
-<<<<<<< HEAD
-=======
 OMNI_MESSAGES = [
     {"role": "user", "content": "<image>What is in this image?"},
     {"role": "assistant", "content": "A cat."},
@@ -65,17 +51,13 @@ OMNI_MESSAGES = [
     {"role": "assistant", "content": "Nothing."},
 ]
 
->>>>>>> upstream/main
 TEXT_MESSAGES = [
     {"role": "user", "content": "How are you"},
     {"role": "assistant", "content": "I am fine!"},
 ]
 
-<<<<<<< HEAD
-=======
 AUDIOS = [np.zeros(1600)]
 
->>>>>>> upstream/main
 IMAGES = [Image.new("RGB", (32, 32), (255, 255, 255))]
 
 NO_IMAGES = []
@@ -86,11 +68,8 @@ NO_AUDIOS = []
 
 IMGLENS = [1]
 
-<<<<<<< HEAD
-=======
 AUDLENS = [1]
 
->>>>>>> upstream/main
 NO_IMGLENS = [0]
 
 NO_VIDLENS = [0]
@@ -104,14 +83,6 @@ LABELS = [0, 1, 2, 3, 4]
 BATCH_IDS = [[1] * 1024]
 
 
-<<<<<<< HEAD
-def _get_mm_inputs(processor: "ProcessorMixin") -> Dict[str, "torch.Tensor"]:
-    image_processor: "BaseImageProcessor" = getattr(processor, "image_processor")
-    return image_processor(images=IMAGES, return_tensors="pt")
-
-
-def _is_close(batch_a: Dict[str, Any], batch_b: Dict[str, Any]) -> None:
-=======
 def _get_mm_inputs(processor: "ProcessorMixin") -> dict[str, "torch.Tensor"]:
     image_processor: BaseImageProcessor = getattr(processor, "image_processor")
     return image_processor(images=IMAGES, return_tensors="pt")
@@ -137,7 +108,6 @@ def _get_omni_inputs(processor: "ProcessorMixin") -> dict[str, "torch.Tensor"]:
 
 
 def _is_close(batch_a: dict[str, Any], batch_b: dict[str, Any]) -> None:
->>>>>>> upstream/main
     assert batch_a.keys() == batch_b.keys()
     for key in batch_a.keys():
         if isinstance(batch_a[key], torch.Tensor):
@@ -159,16 +129,6 @@ def _check_plugin(
     plugin: "BasePlugin",
     tokenizer: "PreTrainedTokenizer",
     processor: "ProcessorMixin",
-<<<<<<< HEAD
-    expected_mm_messages: Sequence[Dict[str, str]] = MM_MESSAGES,
-    expected_input_ids: List[int] = INPUT_IDS,
-    expected_labels: List[int] = LABELS,
-    expected_mm_inputs: Dict[str, Any] = {},
-    expected_no_mm_inputs: Dict[str, Any] = {},
-) -> None:
-    # test mm_messages
-    if plugin.__class__.__name__ != "BasePlugin":
-=======
     expected_mm_messages: list[dict[str, str]] = MM_MESSAGES,
     expected_input_ids: list[int] = INPUT_IDS,
     expected_labels: list[int] = LABELS,
@@ -186,7 +146,6 @@ def _check_plugin(
             expected_mm_inputs,
         )
     elif plugin.__class__.__name__ != "BasePlugin":  # test mm_messages
->>>>>>> upstream/main
         assert plugin.process_messages(MM_MESSAGES, IMAGES, NO_VIDEOS, NO_AUDIOS, processor) == expected_mm_messages
         assert plugin.process_token_ids(INPUT_IDS, LABELS, IMAGES, NO_VIDEOS, NO_AUDIOS, tokenizer, processor) == (
             expected_input_ids,
@@ -212,18 +171,12 @@ def _check_plugin(
 
 
 def test_base_plugin():
-<<<<<<< HEAD
-    tokenizer_module = _load_tokenizer_module(model_name_or_path=TINY_LLAMA)
-=======
     tokenizer_module = _load_tokenizer_module(model_name_or_path=TINY_LLAMA3)
->>>>>>> upstream/main
     base_plugin = get_mm_plugin(name="base")
     check_inputs = {"plugin": base_plugin, **tokenizer_module}
     _check_plugin(**check_inputs)
 
 
-<<<<<<< HEAD
-=======
 @pytest.mark.skipif(not HF_TOKEN, reason="Gated model.")
 @pytest.mark.skipif(not is_transformers_version_greater_than("4.50.0"), reason="Requires transformers>=4.50.0")
 def test_gemma3_plugin():
@@ -285,7 +238,6 @@ def test_llama4_plugin():
     _check_plugin(**check_inputs)
 
 
->>>>>>> upstream/main
 def test_llava_plugin():
     image_seqlen = 576
     tokenizer_module = _load_tokenizer_module(model_name_or_path="llava-hf/llava-1.5-7b-hf")
@@ -344,10 +296,7 @@ def test_paligemma_plugin():
     _check_plugin(**check_inputs)
 
 
-<<<<<<< HEAD
-=======
 @pytest.mark.skipif(not is_transformers_version_greater_than("4.50.0"), reason="Requires transformers>=4.50.0")
->>>>>>> upstream/main
 def test_pixtral_plugin():
     image_slice_height, image_slice_width = 2, 2
     tokenizer_module = _load_tokenizer_module(model_name_or_path="mistral-community/pixtral-12b")
@@ -365,16 +314,10 @@ def test_pixtral_plugin():
         for message in MM_MESSAGES
     ]
     check_inputs["expected_mm_inputs"] = _get_mm_inputs(tokenizer_module["processor"])
-<<<<<<< HEAD
-    check_inputs["expected_mm_inputs"].pop("image_sizes")
-=======
->>>>>>> upstream/main
     check_inputs["expected_mm_inputs"]["pixel_values"] = check_inputs["expected_mm_inputs"]["pixel_values"][0]
     _check_plugin(**check_inputs)
 
 
-<<<<<<< HEAD
-=======
 @pytest.mark.skipif(not is_transformers_version_greater_than("4.52.0"), reason="Requires transformers>=4.52.0")
 def test_qwen2_omni_plugin():
     image_seqlen, audio_seqlen = 4, 2
@@ -398,7 +341,6 @@ def test_qwen2_omni_plugin():
     _check_plugin(**check_inputs)
 
 
->>>>>>> upstream/main
 def test_qwen2_vl_plugin():
     image_seqlen = 4
     tokenizer_module = _load_tokenizer_module(model_name_or_path="Qwen/Qwen2-VL-7B-Instruct")
@@ -415,10 +357,7 @@ def test_qwen2_vl_plugin():
     _check_plugin(**check_inputs)
 
 
-<<<<<<< HEAD
-=======
 @pytest.mark.skipif(not is_transformers_version_greater_than("4.47.0"), reason="Requires transformers>=4.47.0")
->>>>>>> upstream/main
 def test_video_llava_plugin():
     image_seqlen = 256
     tokenizer_module = _load_tokenizer_module(model_name_or_path="LanguageBind/Video-LLaVA-7B-hf")
