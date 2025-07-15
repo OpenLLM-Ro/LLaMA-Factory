@@ -1,8 +1,4 @@
-<<<<<<< HEAD
-# Copyright 2024 HuggingFace Inc. and the LlamaFactory team.
-=======
 # Copyright 2025 HuggingFace Inc. and the LlamaFactory team.
->>>>>>> upstream/main
 #
 # This code is inspired by the HuggingFace's transformers library.
 # https://github.com/huggingface/transformers/blob/v4.40.0/examples/pytorch/summarization/run_summarization.py
@@ -19,20 +15,12 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-<<<<<<< HEAD
-from typing import TYPE_CHECKING, List, Optional
-=======
 from typing import TYPE_CHECKING, Optional
->>>>>>> upstream/main
 
 from ...data import SFTDataCollatorWith4DAttentionMask, get_dataset, get_template_and_fix_tokenizer
 from ...extras.constants import IGNORE_INDEX
 from ...extras.logging import get_logger
-<<<<<<< HEAD
-from ...extras.misc import calculate_tps, get_logits_processor
-=======
 from ...extras.misc import calculate_tps
->>>>>>> upstream/main
 from ...extras.ploting import plot_loss
 from ...model import load_model, load_tokenizer
 from ..trainer_utils import create_modelcard_and_push
@@ -55,11 +43,7 @@ def run_sft(
     training_args: "Seq2SeqTrainingArguments",
     finetuning_args: "FinetuningArguments",
     generating_args: "GeneratingArguments",
-<<<<<<< HEAD
-    callbacks: Optional[List["TrainerCallback"]] = None,
-=======
     callbacks: Optional[list["TrainerCallback"]] = None,
->>>>>>> upstream/main
 ):
     tokenizer_module = load_tokenizer(model_args)
     tokenizer = tokenizer_module["tokenizer"]
@@ -81,14 +65,6 @@ def run_sft(
         **tokenizer_module,
     )
 
-<<<<<<< HEAD
-    # Override the decoding parameters of Seq2SeqTrainer
-    training_args.generation_max_length = training_args.generation_max_length or data_args.cutoff_len
-    training_args.generation_num_beams = data_args.eval_num_beams or training_args.generation_num_beams
-    training_args.remove_unused_columns = False  # important for multimodal dataset
-
-=======
->>>>>>> upstream/main
     # Metric utils
     metric_module = {}
     if training_args.predict_with_generate:
@@ -101,10 +77,6 @@ def run_sft(
     gen_kwargs = generating_args.to_dict(obey_generation_config=True)
     gen_kwargs["eos_token_id"] = [tokenizer.eos_token_id] + tokenizer.additional_special_tokens_ids
     gen_kwargs["pad_token_id"] = tokenizer.pad_token_id
-<<<<<<< HEAD
-    gen_kwargs["logits_processor"] = get_logits_processor()
-=======
->>>>>>> upstream/main
 
     # Initialize our Trainer
     trainer = CustomSeq2SeqTrainer(
@@ -132,9 +104,6 @@ def run_sft(
         trainer.save_metrics("train", train_result.metrics)
         trainer.save_state()
         if trainer.is_world_process_zero() and finetuning_args.plot_loss:
-<<<<<<< HEAD
-            plot_loss(training_args.output_dir, keys=["loss", "eval_loss", "eval_accuracy"])
-=======
             keys = ["loss"]
             if isinstance(dataset_module.get("eval_dataset"), dict):
                 keys += sum(
@@ -144,7 +113,6 @@ def run_sft(
                 keys += ["eval_loss", "eval_accuracy"]
 
             plot_loss(training_args.output_dir, keys=keys)
->>>>>>> upstream/main
 
     if training_args.predict_with_generate:
         tokenizer.padding_side = "left"  # use left-padding in generation

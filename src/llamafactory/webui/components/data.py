@@ -14,11 +14,7 @@
 
 import json
 import os
-<<<<<<< HEAD
-from typing import TYPE_CHECKING, Any, Dict, List, Tuple
-=======
 from typing import TYPE_CHECKING, Any
->>>>>>> upstream/main
 
 from ...extras.constants import DATA_CONFIG
 from ...extras.packages import is_gradio_available
@@ -44,13 +40,7 @@ def next_page(page_index: int, total_num: int) -> int:
 
 
 def can_preview(dataset_dir: str, dataset: list) -> "gr.Button":
-<<<<<<< HEAD
-    r"""
-    Checks if the dataset is a local dataset.
-    """
-=======
     r"""Check if the dataset is a local dataset."""
->>>>>>> upstream/main
     try:
         with open(os.path.join(dataset_dir, DATA_CONFIG), encoding="utf-8") as f:
             dataset_info = json.load(f)
@@ -67,11 +57,7 @@ def can_preview(dataset_dir: str, dataset: list) -> "gr.Button":
         return gr.Button(interactive=False)
 
 
-<<<<<<< HEAD
-def _load_data_file(file_path: str) -> List[Any]:
-=======
 def _load_data_file(file_path: str) -> list[Any]:
->>>>>>> upstream/main
     with open(file_path, encoding="utf-8") as f:
         if file_path.endswith(".json"):
             return json.load(f)
@@ -81,15 +67,8 @@ def _load_data_file(file_path: str) -> list[Any]:
             return list(f)
 
 
-<<<<<<< HEAD
-def get_preview(dataset_dir: str, dataset: list, page_index: int) -> Tuple[int, list, "gr.Column"]:
-    r"""
-    Gets the preview samples from the dataset.
-    """
-=======
 def get_preview(dataset_dir: str, dataset: list, page_index: int) -> tuple[int, list, "gr.Column"]:
     r"""Get the preview samples from the dataset."""
->>>>>>> upstream/main
     with open(os.path.join(dataset_dir, DATA_CONFIG), encoding="utf-8") as f:
         dataset_info = json.load(f)
 
@@ -104,11 +83,7 @@ def get_preview(dataset_dir: str, dataset: list, page_index: int) -> tuple[int, 
     return len(data), data[PAGE_SIZE * page_index : PAGE_SIZE * (page_index + 1)], gr.Column(visible=True)
 
 
-<<<<<<< HEAD
-def create_preview_box(dataset_dir: "gr.Textbox", dataset: "gr.Dropdown") -> Dict[str, "Component"]:
-=======
 def create_preview_box(dataset_dir: "gr.Textbox", dataset: "gr.Dropdown") -> dict[str, "Component"]:
->>>>>>> upstream/main
     data_preview_btn = gr.Button(interactive=False, scale=1)
     with gr.Column(visible=False, elem_classes="modal-box") as preview_box:
         with gr.Row():

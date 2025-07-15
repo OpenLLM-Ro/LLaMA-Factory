@@ -789,25 +789,7 @@ register_template(
 )
 
 
-_register_template(
-    name="cohere_ro",
-    format_user=StringFormatter(
-        slots=[
-            (
-                "<|START_OF_TURN_TOKEN|><|USER_TOKEN|>{{content}}<|END_OF_TURN_TOKEN|>"
-                "<|START_OF_TURN_TOKEN|><|CHATBOT_TOKEN|>"
-            )
-        ]
-    ),
-    format_system=StringFormatter(
-        slots=[{"bos_token"}, "<|START_OF_TURN_TOKEN|><|SYSTEM_TOKEN|>{{content}}<|END_OF_TURN_TOKEN|>"]
-    ),
-    default_system=(
-        "Ești un asistent folositor, respectuos și onest. Încearcă să ajuți cât mai mult prin informațiile oferite, excluzând răspunsuri toxice, rasiste, sexiste, periculoase și ilegale."
-    ),
-)
-
-_register_template(
+register_template(
     name="cohere_ro",
     format_user=StringFormatter(
         slots=[
@@ -1195,14 +1177,14 @@ register_template(
     template_class=Llama2Template,
 )
 
-_register_template(
+register_template(
     name="llama2_ro",
     format_user=StringFormatter(slots=[{"bos_token"}, "[INST] {{content}} [/INST]"]),
     format_system=StringFormatter(slots=["<<SYS>>\n{{content}}\n<</SYS>>\n\n"]),
     default_system="Ești un asistent folositor, respectuos și onest. Încearcă să ajuți cât mai mult prin informațiile oferite, excluzând răspunsuri toxice, rasiste, sexiste, periculoase și ilegale.",
 )
 
-_register_template(
+register_template(
     name="llama2_zh",
     format_user=StringFormatter(slots=[{"bos_token"}, "[INST] {{content}} [/INST]"]),
     format_system=StringFormatter(slots=["<<SYS>>\n{{content}}\n<</SYS>>\n\n"]),

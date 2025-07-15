@@ -17,11 +17,7 @@ import os
 import signal
 from collections import defaultdict
 from datetime import datetime
-<<<<<<< HEAD
-from typing import Any, Dict, Optional, Union
-=======
 from typing import Any, Optional, Union
->>>>>>> upstream/main
 
 from psutil import Process
 from yaml import safe_dump, safe_load
@@ -48,13 +44,7 @@ USER_CONFIG = "user_config.yaml"
 
 
 def abort_process(pid: int) -> None:
-<<<<<<< HEAD
-    r"""
-    Aborts the processes recursively in a bottom-up way.
-    """
-=======
     r"""Abort the processes recursively in a bottom-up way."""
->>>>>>> upstream/main
     try:
         children = Process(pid).children()
         if children:
@@ -67,13 +57,7 @@ def abort_process(pid: int) -> None:
 
 
 def get_save_dir(*paths: str) -> os.PathLike:
-<<<<<<< HEAD
-    r"""
-    Gets the path to saved model checkpoints.
-    """
-=======
     r"""Get the path to saved model checkpoints."""
->>>>>>> upstream/main
     if os.path.sep in paths[-1]:
         logger.warning_rank0("Found complex path, some features may be not available.")
         return paths[-1]
@@ -83,41 +67,16 @@ def get_save_dir(*paths: str) -> os.PathLike:
 
 
 def _get_config_path() -> os.PathLike:
-<<<<<<< HEAD
-    r"""
-    Gets the path to user config.
-    """
-    return os.path.join(DEFAULT_CACHE_DIR, USER_CONFIG)
-
-
-def load_config() -> Dict[str, Union[str, Dict[str, Any]]]:
-    r"""
-    Loads user config if exists.
-    """
-=======
     r"""Get the path to user config."""
     return os.path.join(DEFAULT_CACHE_DIR, USER_CONFIG)
 
 
 def load_config() -> dict[str, Union[str, dict[str, Any]]]:
     r"""Load user config if exists."""
->>>>>>> upstream/main
     try:
         with open(_get_config_path(), encoding="utf-8") as f:
             return safe_load(f)
     except Exception:
-<<<<<<< HEAD
-        return {"lang": None, "last_model": None, "path_dict": {}, "cache_dir": None}
-
-
-def save_config(lang: str, model_name: Optional[str] = None, model_path: Optional[str] = None) -> None:
-    r"""
-    Saves user config.
-    """
-    os.makedirs(DEFAULT_CACHE_DIR, exist_ok=True)
-    user_config = load_config()
-    user_config["lang"] = lang or user_config["lang"]
-=======
         return {"lang": None, "hub_name": None, "last_model": None, "path_dict": {}, "cache_dir": None}
 
 
@@ -131,7 +90,6 @@ def save_config(
     if hub_name:
         user_config["hub_name"] = hub_name
 
->>>>>>> upstream/main
     if model_name:
         user_config["last_model"] = model_name
 
@@ -143,17 +101,9 @@ def save_config(
 
 
 def get_model_path(model_name: str) -> str:
-<<<<<<< HEAD
-    r"""
-    Gets the model path according to the model name.
-    """
-    user_config = load_config()
-    path_dict: Dict["DownloadSource", str] = SUPPORTED_MODELS.get(model_name, defaultdict(str))
-=======
     r"""Get the model path according to the model name."""
     user_config = load_config()
     path_dict: dict[DownloadSource, str] = SUPPORTED_MODELS.get(model_name, defaultdict(str))
->>>>>>> upstream/main
     model_path = user_config["path_dict"].get(model_name, "") or path_dict.get(DownloadSource.DEFAULT, "")
     if (
         use_modelscope()
@@ -173,47 +123,22 @@ def get_model_path(model_name: str) -> str:
 
 
 def get_template(model_name: str) -> str:
-<<<<<<< HEAD
-    r"""
-    Gets the template name if the model is a chat/distill/instruct model.
-    """
-=======
     r"""Get the template name if the model is a chat/distill/instruct model."""
->>>>>>> upstream/main
     return DEFAULT_TEMPLATE.get(model_name, "default")
 
 
 def get_time() -> str:
-<<<<<<< HEAD
-    r"""
-    Gets current date and time.
-    """
-=======
     r"""Get current date and time."""
->>>>>>> upstream/main
     return datetime.now().strftime(r"%Y-%m-%d-%H-%M-%S")
 
 
 def is_multimodal(model_name: str) -> bool:
-<<<<<<< HEAD
-    r"""
-    Judges if the model is a vision language model.
-    """
-    return model_name in MULTIMODAL_SUPPORTED_MODELS
-
-
-def load_dataset_info(dataset_dir: str) -> Dict[str, Dict[str, Any]]:
-    r"""
-    Loads dataset_info.json.
-    """
-=======
     r"""Judge if the model is a vision language model."""
     return model_name in MULTIMODAL_SUPPORTED_MODELS
 
 
 def load_dataset_info(dataset_dir: str) -> dict[str, dict[str, Any]]:
     r"""Load dataset_info.json."""
->>>>>>> upstream/main
     if dataset_dir == "ONLINE" or dataset_dir.startswith("REMOTE:"):
         logger.info_rank0(f"dataset_dir is {dataset_dir}, using online dataset.")
         return {}
@@ -226,15 +151,8 @@ def load_dataset_info(dataset_dir: str) -> dict[str, dict[str, Any]]:
         return {}
 
 
-<<<<<<< HEAD
-def load_args(config_path: str) -> Optional[Dict[str, Any]]:
-    r"""
-    Loads the training configuration from config path.
-    """
-=======
 def load_args(config_path: str) -> Optional[dict[str, Any]]:
     r"""Load the training configuration from config path."""
->>>>>>> upstream/main
     try:
         with open(config_path, encoding="utf-8") as f:
             return safe_load(f)
@@ -242,33 +160,12 @@ def load_args(config_path: str) -> Optional[dict[str, Any]]:
         return None
 
 
-<<<<<<< HEAD
-def save_args(config_path: str, config_dict: Dict[str, Any]) -> None:
-    r"""
-    Saves the training configuration to config path.
-    """
-=======
 def save_args(config_path: str, config_dict: dict[str, Any]) -> None:
     r"""Save the training configuration to config path."""
->>>>>>> upstream/main
     with open(config_path, "w", encoding="utf-8") as f:
         safe_dump(config_dict, f)
 
 
-<<<<<<< HEAD
-def _clean_cmd(args: Dict[str, Any]) -> Dict[str, Any]:
-    r"""
-    Removes args with NoneType or False or empty string value.
-    """
-    no_skip_keys = ["packing"]
-    return {k: v for k, v in args.items() if (k in no_skip_keys) or (v is not None and v is not False and v != "")}
-
-
-def gen_cmd(args: Dict[str, Any]) -> str:
-    r"""
-    Generates CLI commands for previewing.
-    """
-=======
 def _clean_cmd(args: dict[str, Any]) -> dict[str, Any]:
     r"""Remove args with NoneType or False or empty string value."""
     no_skip_keys = [
@@ -284,7 +181,6 @@ def _clean_cmd(args: dict[str, Any]) -> dict[str, Any]:
 
 def gen_cmd(args: dict[str, Any]) -> str:
     r"""Generate CLI commands for previewing."""
->>>>>>> upstream/main
     cmd_lines = ["llamafactory-cli train "]
     for k, v in _clean_cmd(args).items():
         if isinstance(v, dict):
@@ -303,15 +199,8 @@ def gen_cmd(args: dict[str, Any]) -> str:
     return cmd_text
 
 
-<<<<<<< HEAD
-def save_cmd(args: Dict[str, Any]) -> str:
-    r"""
-    Saves CLI commands to launch training.
-    """
-=======
 def save_cmd(args: dict[str, Any]) -> str:
     r"""Save CLI commands to launch training."""
->>>>>>> upstream/main
     output_dir = args["output_dir"]
     os.makedirs(output_dir, exist_ok=True)
     with open(os.path.join(output_dir, TRAINING_ARGS), "w", encoding="utf-8") as f:
@@ -321,25 +210,13 @@ def save_cmd(args: dict[str, Any]) -> str:
 
 
 def load_eval_results(path: os.PathLike) -> str:
-<<<<<<< HEAD
-    r"""
-    Gets scores after evaluation.
-    """
-=======
     r"""Get scores after evaluation."""
->>>>>>> upstream/main
     with open(path, encoding="utf-8") as f:
         result = json.dumps(json.load(f), indent=4)
 
     return f"```json\n{result}\n```\n"
 
 
-<<<<<<< HEAD
-def create_ds_config() -> None:
-    r"""
-    Creates deepspeed config in the current directory.
-    """
-=======
 def calculate_pixels(pixels: str) -> int:
     r"""Calculate the number of pixels from the expression."""
     if "*" in pixels:
@@ -350,7 +227,6 @@ def calculate_pixels(pixels: str) -> int:
 
 def create_ds_config() -> None:
     r"""Create deepspeed config in the current directory."""
->>>>>>> upstream/main
     os.makedirs(DEFAULT_CACHE_DIR, exist_ok=True)
     ds_config = {
         "train_batch_size": "auto",
@@ -376,11 +252,7 @@ def create_ds_config() -> None:
         "stage": 2,
         "allgather_partitions": True,
         "allgather_bucket_size": 5e8,
-<<<<<<< HEAD
-        "overlap_comm": True,
-=======
         "overlap_comm": False,
->>>>>>> upstream/main
         "reduce_scatter": True,
         "reduce_bucket_size": 5e8,
         "contiguous_gradients": True,
@@ -395,11 +267,7 @@ def create_ds_config() -> None:
 
     ds_config["zero_optimization"] = {
         "stage": 3,
-<<<<<<< HEAD
-        "overlap_comm": True,
-=======
         "overlap_comm": False,
->>>>>>> upstream/main
         "contiguous_gradients": True,
         "sub_group_size": 1e9,
         "reduce_bucket_size": "auto",

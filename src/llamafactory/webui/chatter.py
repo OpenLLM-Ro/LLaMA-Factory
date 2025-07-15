@@ -14,13 +14,9 @@
 
 import json
 import os
-<<<<<<< HEAD
-from typing import TYPE_CHECKING, Any, Dict, Generator, List, Optional, Tuple
-=======
 from collections.abc import Generator
 from contextlib import contextmanager
 from typing import TYPE_CHECKING, Any, Optional
->>>>>>> upstream/main
 
 from transformers.utils import is_torch_npu_available
 
@@ -43,24 +39,12 @@ if is_gradio_available():
 
 
 def _escape_html(text: str) -> str:
-<<<<<<< HEAD
-    r"""
-    Escapes HTML characters.
-    """
-    return text.replace("<", "&lt;").replace(">", "&gt;")
-
-
-def _format_response(text: str, lang: str, escape_html: bool, thought_words: Tuple[str, str]) -> str:
-    r"""
-    Post-processes the response text.
-=======
     r"""Escape HTML characters."""
     return text.replace("<", "&lt;").replace(">", "&gt;")
 
 
 def _format_response(text: str, lang: str, escape_html: bool, thought_words: tuple[str, str]) -> str:
     r"""Post-process the response text.
->>>>>>> upstream/main
 
     Based on: https://huggingface.co/spaces/Lyte/DeepSeek-R1-Distill-Qwen-1.5B-Demo-GGUF/blob/main/app.py
     """
@@ -85,8 +69,6 @@ def _format_response(text: str, lang: str, escape_html: bool, thought_words: tup
     )
 
 
-<<<<<<< HEAD
-=======
 @contextmanager
 def update_attr(obj: Any, name: str, value: Any):
     old_value = getattr(obj, name, None)
@@ -95,31 +77,19 @@ def update_attr(obj: Any, name: str, value: Any):
     setattr(obj, name, old_value)
 
 
->>>>>>> upstream/main
 class WebChatModel(ChatModel):
     def __init__(self, manager: "Manager", demo_mode: bool = False, lazy_init: bool = True) -> None:
         self.manager = manager
         self.demo_mode = demo_mode
-<<<<<<< HEAD
-        self.engine: Optional["BaseEngine"] = None
-=======
         self.engine: Optional[BaseEngine] = None
->>>>>>> upstream/main
 
         if not lazy_init:  # read arguments from command line
             super().__init__()
 
-<<<<<<< HEAD
-        if demo_mode and os.environ.get("DEMO_MODEL") and os.environ.get("DEMO_TEMPLATE"):  # load demo model
-            model_name_or_path = os.environ.get("DEMO_MODEL")
-            template = os.environ.get("DEMO_TEMPLATE")
-            infer_backend = os.environ.get("DEMO_BACKEND", "huggingface")
-=======
         if demo_mode and os.getenv("DEMO_MODEL") and os.getenv("DEMO_TEMPLATE"):  # load demo model
             model_name_or_path = os.getenv("DEMO_MODEL")
             template = os.getenv("DEMO_TEMPLATE")
             infer_backend = os.getenv("DEMO_BACKEND", "huggingface")
->>>>>>> upstream/main
             super().__init__(
                 dict(model_name_or_path=model_name_or_path, template=template, infer_backend=infer_backend)
             )
@@ -144,14 +114,11 @@ class WebChatModel(ChatModel):
         elif self.demo_mode:
             error = ALERTS["err_demo"][lang]
 
-<<<<<<< HEAD
-=======
         try:
             json.loads(get("infer.extra_args"))
         except json.JSONDecodeError:
             error = ALERTS["err_json_schema"][lang]
 
->>>>>>> upstream/main
         if error:
             gr.Warning(error)
             yield error
@@ -171,10 +138,7 @@ class WebChatModel(ChatModel):
             infer_dtype=get("infer.infer_dtype"),
             trust_remote_code=True,
         )
-<<<<<<< HEAD
-=======
         args.update(json.loads(get("infer.extra_args")))
->>>>>>> upstream/main
 
         # checkpoints
         if checkpoint_path:
@@ -209,16 +173,6 @@ class WebChatModel(ChatModel):
 
     @staticmethod
     def append(
-<<<<<<< HEAD
-        chatbot: List[Dict[str, str]],
-        messages: List[Dict[str, str]],
-        role: str,
-        query: str,
-        escape_html: bool,
-    ) -> Tuple[List[Dict[str, str]], List[Dict[str, str]], str]:
-        r"""
-        Adds the user input to chatbot.
-=======
         chatbot: list[dict[str, str]],
         messages: list[dict[str, str]],
         role: str,
@@ -226,7 +180,6 @@ class WebChatModel(ChatModel):
         escape_html: bool,
     ) -> tuple[list[dict[str, str]], list[dict[str, str]], str]:
         r"""Add the user input to chatbot.
->>>>>>> upstream/main
 
         Inputs: infer.chatbot, infer.messages, infer.role, infer.query, infer.escape_html
         Output: infer.chatbot, infer.messages, infer.query
@@ -239,13 +192,8 @@ class WebChatModel(ChatModel):
 
     def stream(
         self,
-<<<<<<< HEAD
-        chatbot: List[Dict[str, str]],
-        messages: List[Dict[str, str]],
-=======
         chatbot: list[dict[str, str]],
         messages: list[dict[str, str]],
->>>>>>> upstream/main
         lang: str,
         system: str,
         tools: str,
@@ -257,52 +205,13 @@ class WebChatModel(ChatModel):
         temperature: float,
         skip_special_tokens: bool,
         escape_html: bool,
-<<<<<<< HEAD
-    ) -> Generator[Tuple[List[Dict[str, str]], List[Dict[str, str]]], None, None]:
-        r"""
-        Generates output text in stream.
-=======
         enable_thinking: bool,
     ) -> Generator[tuple[list[dict[str, str]], list[dict[str, str]]], None, None]:
         r"""Generate output text in stream.
->>>>>>> upstream/main
 
         Inputs: infer.chatbot, infer.messages, infer.system, infer.tools, infer.image, infer.video, ...
         Output: infer.chatbot, infer.messages
         """
-<<<<<<< HEAD
-        chatbot.append({"role": "assistant", "content": ""})
-        response = ""
-        for new_text in self.stream_chat(
-            messages,
-            system,
-            tools,
-            images=[image] if image else None,
-            videos=[video] if video else None,
-            audios=[audio] if audio else None,
-            max_new_tokens=max_new_tokens,
-            top_p=top_p,
-            temperature=temperature,
-            skip_special_tokens=skip_special_tokens,
-        ):
-            response += new_text
-            if tools:
-                result = self.engine.template.extract_tool(response)
-            else:
-                result = response
-
-            if isinstance(result, list):
-                tool_calls = [{"name": tool.name, "arguments": json.loads(tool.arguments)} for tool in result]
-                tool_calls = json.dumps(tool_calls, ensure_ascii=False)
-                output_messages = messages + [{"role": Role.FUNCTION.value, "content": tool_calls}]
-                bot_text = "```json\n" + tool_calls + "\n```"
-            else:
-                output_messages = messages + [{"role": Role.ASSISTANT.value, "content": result}]
-                bot_text = _format_response(result, lang, escape_html, self.engine.template.thought_words)
-
-            chatbot[-1] = {"role": "assistant", "content": bot_text}
-            yield chatbot, output_messages
-=======
         with update_attr(self.engine.template, "enable_thinking", enable_thinking):
             chatbot.append({"role": "assistant", "content": ""})
             response = ""
@@ -335,4 +244,3 @@ class WebChatModel(ChatModel):
 
                 chatbot[-1] = {"role": "assistant", "content": bot_text}
                 yield chatbot, output_messages
->>>>>>> upstream/main

@@ -1,8 +1,4 @@
-<<<<<<< HEAD
-# Copyright 2024 HuggingFace Inc. and the LlamaFactory team.
-=======
 # Copyright 2025 HuggingFace Inc. and the LlamaFactory team.
->>>>>>> upstream/main
 #
 # This code is inspired by the HuggingFace's transformers library.
 # https://github.com/huggingface/transformers/blob/v4.40.0/examples/pytorch/summarization/run_summarization.py
@@ -19,11 +15,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-<<<<<<< HEAD
-from typing import TYPE_CHECKING, List, Optional
-=======
 from typing import TYPE_CHECKING, Optional
->>>>>>> upstream/main
 
 from ...data import PairwiseDataCollatorWithPadding, get_dataset, get_template_and_fix_tokenizer
 from ...extras.ploting import plot_loss
@@ -45,11 +37,7 @@ def run_rm(
     data_args: "DataArguments",
     training_args: "Seq2SeqTrainingArguments",
     finetuning_args: "FinetuningArguments",
-<<<<<<< HEAD
-    callbacks: Optional[List["TrainerCallback"]] = None,
-=======
     callbacks: Optional[list["TrainerCallback"]] = None,
->>>>>>> upstream/main
 ):
     tokenizer_module = load_tokenizer(model_args)
     tokenizer = tokenizer_module["tokenizer"]
@@ -60,12 +48,6 @@ def run_rm(
         template=template, model=model, pad_to_multiple_of=8, **tokenizer_module
     )
 
-<<<<<<< HEAD
-    # Update arguments
-    training_args.remove_unused_columns = False  # important for multimodal and pairwise dataset
-
-=======
->>>>>>> upstream/main
     # Initialize our Trainer
     trainer = PairwiseTrainer(
         model=model,
@@ -89,9 +71,6 @@ def run_rm(
         trainer.save_metrics("train", train_result.metrics)
         trainer.save_state()
         if trainer.is_world_process_zero() and finetuning_args.plot_loss:
-<<<<<<< HEAD
-            plot_loss(training_args.output_dir, keys=["loss", "eval_loss", "eval_accuracy"])
-=======
             keys = ["loss"]
             if isinstance(dataset_module.get("eval_dataset"), dict):
                 keys += sum(
@@ -101,7 +80,6 @@ def run_rm(
                 keys += ["eval_loss", "eval_accuracy"]
 
             plot_loss(training_args.output_dir, keys=keys)
->>>>>>> upstream/main
 
     # Evaluation
     if training_args.do_eval:

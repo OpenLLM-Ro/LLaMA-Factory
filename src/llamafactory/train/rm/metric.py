@@ -13,11 +13,7 @@
 # limitations under the License.
 
 from dataclasses import dataclass
-<<<<<<< HEAD
-from typing import TYPE_CHECKING, Dict, Optional
-=======
 from typing import TYPE_CHECKING, Optional
->>>>>>> upstream/main
 
 import numpy as np
 
@@ -30,17 +26,9 @@ if TYPE_CHECKING:
 
 @dataclass
 class ComputeAccuracy:
-<<<<<<< HEAD
-    r"""
-    Computes reward accuracy and supports `batch_eval_metrics`.
-    """
-
-    def _dump(self) -> Optional[Dict[str, float]]:
-=======
     r"""Compute reward accuracy and support `batch_eval_metrics`."""
 
     def _dump(self) -> Optional[dict[str, float]]:
->>>>>>> upstream/main
         result = None
         if hasattr(self, "score_dict"):
             result = {k: float(np.mean(v)) for k, v in self.score_dict.items()}
@@ -51,11 +39,7 @@ class ComputeAccuracy:
     def __post_init__(self):
         self._dump()
 
-<<<<<<< HEAD
-    def __call__(self, eval_preds: "EvalPrediction", compute_result: bool = True) -> Optional[Dict[str, float]]:
-=======
     def __call__(self, eval_preds: "EvalPrediction", compute_result: bool = True) -> Optional[dict[str, float]]:
->>>>>>> upstream/main
         chosen_scores, rejected_scores = numpify(eval_preds.predictions[0]), numpify(eval_preds.predictions[1])
         if not chosen_scores.shape:
             self.score_dict["accuracy"].append(chosen_scores > rejected_scores)

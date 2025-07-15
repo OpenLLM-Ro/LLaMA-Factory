@@ -1,8 +1,4 @@
-<<<<<<< HEAD
-# Copyright 2024 HuggingFace Inc. and the LlamaFactory team.
-=======
 # Copyright 2025 HuggingFace Inc. and the LlamaFactory team.
->>>>>>> upstream/main
 #
 # This code is inspired by the HuggingFace's TRL library.
 # https://github.com/huggingface/trl/blob/v0.8.0/examples/scripts/ppo.py
@@ -19,11 +15,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-<<<<<<< HEAD
-from typing import TYPE_CHECKING, List, Optional
-=======
 from typing import TYPE_CHECKING, Optional
->>>>>>> upstream/main
 
 from ...data import MultiModalDataCollatorForSeq2Seq, get_dataset, get_template_and_fix_tokenizer
 from ...extras.ploting import plot_loss
@@ -45,11 +37,7 @@ def run_ppo(
     training_args: "Seq2SeqTrainingArguments",
     finetuning_args: "FinetuningArguments",
     generating_args: "GeneratingArguments",
-<<<<<<< HEAD
-    callbacks: Optional[List["TrainerCallback"]] = None,
-=======
     callbacks: Optional[list["TrainerCallback"]] = None,
->>>>>>> upstream/main
 ):
     tokenizer_module = load_tokenizer(model_args)
     tokenizer = tokenizer_module["tokenizer"]
@@ -65,11 +53,7 @@ def run_ppo(
     reward_model = create_reward_model(model, model_args, finetuning_args)
 
     # Initialize our Trainer
-<<<<<<< HEAD
-    ppo_trainer: "CustomPPOTrainer" = CustomPPOTrainer(
-=======
     ppo_trainer: CustomPPOTrainer = CustomPPOTrainer(
->>>>>>> upstream/main
         model_args=model_args,
         training_args=training_args,
         finetuning_args=finetuning_args,
