@@ -12,7 +12,11 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+<<<<<<< HEAD
 from typing import TYPE_CHECKING, Dict
+=======
+from typing import TYPE_CHECKING
+>>>>>>> upstream/main
 
 from transformers.trainer_utils import SchedulerType
 
@@ -34,7 +38,11 @@ if TYPE_CHECKING:
     from ..engine import Engine
 
 
+<<<<<<< HEAD
 def create_train_tab(engine: "Engine") -> Dict[str, "Component"]:
+=======
+def create_train_tab(engine: "Engine") -> dict[str, "Component"]:
+>>>>>>> upstream/main
     input_elems = engine.manager.get_base_elems()
     elem_dict = dict()
 
@@ -106,11 +114,19 @@ def create_train_tab(engine: "Engine") -> Dict[str, "Component"]:
                 use_llama_pro = gr.Checkbox()
 
             with gr.Column():
+<<<<<<< HEAD
                 report_to = gr.Dropdown(
                     choices=["none", "all", "wandb", "mlflow", "neptune", "tensorboard"],
                     value=["none"],
                     allow_custom_value=True,
                     multiselect=True,
+=======
+                enable_thinking = gr.Checkbox(value=True)
+                report_to = gr.Dropdown(
+                    choices=["none", "wandb", "mlflow", "neptune", "tensorboard", "all"],
+                    value="none",
+                    allow_custom_value=True,
+>>>>>>> upstream/main
                 )
 
     input_elems.update(
@@ -126,6 +142,10 @@ def create_train_tab(engine: "Engine") -> Dict[str, "Component"]:
             mask_history,
             resize_vocab,
             use_llama_pro,
+<<<<<<< HEAD
+=======
+            enable_thinking,
+>>>>>>> upstream/main
             report_to,
         }
     )
@@ -143,6 +163,10 @@ def create_train_tab(engine: "Engine") -> Dict[str, "Component"]:
             mask_history=mask_history,
             resize_vocab=resize_vocab,
             use_llama_pro=use_llama_pro,
+<<<<<<< HEAD
+=======
+            enable_thinking=enable_thinking,
+>>>>>>> upstream/main
             report_to=report_to,
         )
     )
@@ -231,6 +255,45 @@ def create_train_tab(engine: "Engine") -> Dict[str, "Component"]:
         )
     )
 
+<<<<<<< HEAD
+=======
+    with gr.Accordion(open=False) as mm_tab:
+        with gr.Row():
+            freeze_vision_tower = gr.Checkbox(value=True)
+            freeze_multi_modal_projector = gr.Checkbox(value=True)
+            freeze_language_model = gr.Checkbox(value=False)
+
+        with gr.Row():
+            image_max_pixels = gr.Textbox(value="768*768")
+            image_min_pixels = gr.Textbox(value="32*32")
+            video_max_pixels = gr.Textbox(value="256*256")
+            video_min_pixels = gr.Textbox(value="16*16")
+
+    input_elems.update(
+        {
+            freeze_vision_tower,
+            freeze_multi_modal_projector,
+            freeze_language_model,
+            image_max_pixels,
+            image_min_pixels,
+            video_max_pixels,
+            video_min_pixels,
+        }
+    )
+    elem_dict.update(
+        dict(
+            mm_tab=mm_tab,
+            freeze_vision_tower=freeze_vision_tower,
+            freeze_multi_modal_projector=freeze_multi_modal_projector,
+            freeze_language_model=freeze_language_model,
+            image_max_pixels=image_max_pixels,
+            image_min_pixels=image_min_pixels,
+            video_max_pixels=video_max_pixels,
+            video_min_pixels=video_min_pixels,
+        )
+    )
+
+>>>>>>> upstream/main
     with gr.Accordion(open=False) as galore_tab:
         with gr.Row():
             use_galore = gr.Checkbox()
@@ -382,8 +445,13 @@ def create_train_tab(engine: "Engine") -> Dict[str, "Component"]:
     resume_btn.change(engine.runner.monitor, outputs=output_elems, concurrency_limit=None)
 
     lang = engine.manager.get_elem_by_id("top.lang")
+<<<<<<< HEAD
     model_name: "gr.Dropdown" = engine.manager.get_elem_by_id("top.model_name")
     finetuning_type: "gr.Dropdown" = engine.manager.get_elem_by_id("top.finetuning_type")
+=======
+    model_name: gr.Dropdown = engine.manager.get_elem_by_id("top.model_name")
+    finetuning_type: gr.Dropdown = engine.manager.get_elem_by_id("top.finetuning_type")
+>>>>>>> upstream/main
 
     arg_save_btn.click(engine.runner.save_args, input_elems, output_elems, concurrency_limit=None)
     arg_load_btn.click(

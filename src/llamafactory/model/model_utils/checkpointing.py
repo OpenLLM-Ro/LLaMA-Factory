@@ -1,4 +1,4 @@
-# Copyright 2024 HuggingFace Inc., Daniel Han-Chen & the Unsloth team and the LlamaFactory team.
+# Copyright 2025 HuggingFace Inc., Daniel Han-Chen & the Unsloth team and the LlamaFactory team.
 #
 # This code is inspired by the HuggingFace's Transformers and PEFT library,
 # https://github.com/huggingface/transformers/blob/v4.40.0/src/transformers/modeling_utils.py
@@ -21,7 +21,7 @@
 import inspect
 from functools import WRAPPER_ASSIGNMENTS, partial, wraps
 from types import MethodType
-from typing import TYPE_CHECKING, Any, Callable, Dict, Optional, Tuple, Union
+from typing import TYPE_CHECKING, Any, Callable, Optional, Union
 
 import torch
 
@@ -40,9 +40,7 @@ logger = logging.get_logger(__name__)
 
 def get_unsloth_gradient_checkpointing_func() -> Callable:
     class UnslothGradientCheckpointing(torch.autograd.Function):
-        r"""
-        Saves VRAM by smartly offloading to RAM.
-        """
+        r"""Saves VRAM by smartly offloading to RAM."""
 
         @staticmethod
         @torch.cuda.amp.custom_fwd
@@ -54,12 +52,12 @@ def get_unsloth_gradient_checkpointing_func() -> Callable:
         ) -> "torch.Tensor":
             saved_hidden_states = hidden_states.to("cpu", non_blocking=True)
             with torch.no_grad():
-                output = forward_function(hidden_states, *args)
+                outputs = forward_function(hidden_states, *args)
 
             ctx.save_for_backward(saved_hidden_states)
             ctx.forward_function = forward_function
             ctx.args = args
-            return output
+            return outputs
 
         @staticmethod
         @torch.cuda.amp.custom_bwd
@@ -68,7 +66,8 @@ def get_unsloth_gradient_checkpointing_func() -> Callable:
             hidden_states = hidden_states.to("cuda", non_blocking=True).detach()
             hidden_states.requires_grad_(True)
             with torch.enable_grad():
-                (output,) = ctx.forward_function(hidden_states, *ctx.args)
+                outputs = ctx.forward_function(hidden_states, *ctx.args)
+                output = outputs[0] if isinstance(outputs, tuple) else outputs
 
             torch.autograd.backward(output, grad_output)
             return (None, hidden_states.grad) + (None,) * len(ctx.args)
@@ -77,13 +76,14 @@ def get_unsloth_gradient_checkpointing_func() -> Callable:
 
 
 def get_custom_gradient_checkpointing_func(gradient_checkpointing_func: Callable) -> Callable:
-    r"""
-    Only applies gradient checkpointing to trainable layers.
-    """
+    r"""Only applies gradient checkpointing to trainable layers."""
 
     @wraps(gradient_checkpointing_func, assigned=WRAPPER_ASSIGNMENTS + ("__self__",))
     def custom_gradient_checkpointing_func(func: Callable, *args: Union["torch.Tensor", Any], **kwargs):
-        module: "torch.nn.Module" = func.__self__
+        if isinstance(func, partial):
+            module: torch.nn.Module = func.func.__self__
+        else:
+            module: torch.nn.Module = func.__self__
 
         has_grad = False
         if any(param.requires_grad for param in module.parameters()):
@@ -103,11 +103,10 @@ def get_custom_gradient_checkpointing_func(gradient_checkpointing_func: Callable
 
 def _gradient_checkpointing_enable(
     self: "PreTrainedModel",
-    gradient_checkpointing_kwargs: Optional[Dict[str, Any]] = None,
+    gradient_checkpointing_kwargs: Optional[dict[str, Any]] = None,
     use_unsloth_gc: bool = False,
 ) -> None:
-    r"""
-    Activates gradient checkpointing for the current model.
+    r"""Activates gradient checkpointing for the current model.
 
     Modification of the original method to enable gradient checkpointing for block-wise optimizer.
     """
@@ -134,17 +133,18 @@ def _gradient_checkpointing_enable(
 
 
 def _fp32_forward_post_hook(
-    module: "torch.nn.Module", args: Tuple["torch.Tensor"], output: "torch.Tensor"
+    module: "torch.nn.Module", args: tuple["torch.Tensor"], output: "torch.Tensor"
 ) -> "torch.Tensor":
     return output.to(torch.float32)
 
 
 def prepare_model_for_training(model: "PreTrainedModel", model_args: "ModelArguments") -> None:
-    r"""
-    Includes:
-        (1) cast the layernorm in fp32
-        (2) make output embedding layer require grads
-        (3) add the upcasting of the lm_head in fp32
+    r"""Prepare the model before training.
+
+    Include:
+    (1) cast the layernorm in fp32
+    (2) make output embedding layer require grads
+    (3) add the upcasting of the lm_head in fp32.
     """
     if model_args.upcast_layernorm:
         logger.info_rank0("Upcasting layernorm weights in float32.")

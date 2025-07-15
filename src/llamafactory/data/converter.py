@@ -15,7 +15,7 @@
 import os
 from abc import abstractmethod
 from dataclasses import dataclass
-from typing import TYPE_CHECKING, Any, Dict, List, Optional, Sequence, Type, Union
+from typing import TYPE_CHECKING, Any, Optional, Union
 
 from ..extras import logging
 from .data_utils import Role
@@ -26,7 +26,11 @@ if TYPE_CHECKING:
     from transformers import Seq2SeqTrainingArguments
 
     from ..hparams import DataArguments
+    from .mm_plugin import AudioInput, ImageInput, VideoInput
     from .parser import DatasetAttr
+
+    MediaType = Union[ImageInput, VideoInput, AudioInput]
+
 
 logger = logging.get_logger(__name__)
 
@@ -36,37 +40,50 @@ class DatasetConverter:
     dataset_attr: "DatasetAttr"
     data_args: "DataArguments"
 
-    def _find_medias(self, medias: Union[Any, Sequence[Any]]) -> Optional[List[Any]]:
-        r"""
-        Optionally concatenates media path to media dir when loading from local disk.
-        """
-        if not isinstance(medias, list):
-            medias = [medias] if medias is not None else []
+    def _find_medias(self, medias: Union["MediaType", list["MediaType"], None]) -> Optional[list["MediaType"]]:
+        r"""Optionally concatenate media path to media dir when loading from local disk."""
+        if medias is None:
+            return None
+        elif not isinstance(medias, list):
+            medias = [medias]
         elif len(medias) == 0:
             return None
         else:
             medias = medias[:]
 
-        if self.dataset_attr.load_from in ["script", "file"] and isinstance(medias[0], str):
-            for i in range(len(medias)):
-                if os.path.isfile(os.path.join(self.data_args.media_dir, medias[i])):
-                    medias[i] = os.path.join(self.data_args.media_dir, medias[i])
-                else:
-                    logger.warning_rank0_once(f"Media {medias[i]} does not exist in `media_dir`. Use original path.")
+        if self.dataset_attr.load_from in ["script", "file"]:
+            if isinstance(medias[0], str):
+                for i in range(len(medias)):
+                    media_path = os.path.join(self.data_args.media_dir, medias[i])
+                    if os.path.isfile(media_path):
+                        medias[i] = media_path
+                    else:
+                        logger.warning_rank0_once(
+                            f"Media {medias[i]} does not exist in `media_dir`. Use original path."
+                        )
+            elif isinstance(medias[0], list):  # for processed video frames
+                # medias is a list of lists, e.g., [[frame1.jpg, frame2.jpg], [frame3.jpg, frame4.jpg]]
+                for i in range(len(medias)):
+                    for j in range(len(medias[i])):
+                        media_path = os.path.join(self.data_args.media_dir, medias[i][j])
+                        if os.path.isfile(media_path):
+                            medias[i][j] = media_path
+                        else:
+                            logger.warning_rank0_once(
+                                f"Media {medias[i][j]} does not exist in `media_dir`. Use original path."
+                            )
 
         return medias
 
     @abstractmethod
-    def __call__(self, example: Dict[str, Any]) -> Dict[str, Any]:
-        r"""
-        Converts a single example in the dataset to the standard format.
-        """
+    def __call__(self, example: dict[str, Any]) -> dict[str, Any]:
+        r"""Convert a single example in the dataset to the standard format."""
         ...
 
 
 @dataclass
 class AlpacaDatasetConverter(DatasetConverter):
-    def __call__(self, example: Dict[str, Any]) -> Dict[str, Any]:
+    def __call__(self, example: dict[str, Any]) -> dict[str, Any]:
         prompt = []
         if self.dataset_attr.history and isinstance(example[self.dataset_attr.history], list):
             for old_prompt, old_response in example[self.dataset_attr.history]:
@@ -116,7 +133,7 @@ class AlpacaDatasetConverter(DatasetConverter):
 
 @dataclass
 class SharegptDatasetConverter(DatasetConverter):
-    def __call__(self, example: Dict[str, Any]) -> Dict[str, Any]:
+    def __call__(self, example: dict[str, Any]) -> dict[str, Any]:
         tag_mapping = {
             self.dataset_attr.user_tag: Role.USER.value,
             self.dataset_attr.assistant_tag: Role.ASSISTANT.value,
@@ -216,10 +233,8 @@ DATASET_CONVERTERS = {
 }
 
 
-def register_dataset_converter(name: str, dataset_converter: Type["DatasetConverter"]) -> None:
-    r"""
-    Register a new dataset converter.
-    """
+def register_dataset_converter(name: str, dataset_converter: type["DatasetConverter"]) -> None:
+    r"""Register a new dataset converter."""
     if name in DATASET_CONVERTERS:
         raise ValueError(f"Dataset converter {name} already exists.")
 
@@ -227,9 +242,7 @@ def register_dataset_converter(name: str, dataset_converter: Type["DatasetConver
 
 
 def get_dataset_converter(name: str, dataset_attr: "DatasetAttr", data_args: "DataArguments") -> "DatasetConverter":
-    r"""
-    Gets a dataset converter.
-    """
+    r"""Get a dataset converter."""
     if name not in DATASET_CONVERTERS:
         raise ValueError(f"Dataset converter {name} not found.")
 
@@ -242,17 +255,17 @@ def align_dataset(
     data_args: "DataArguments",
     training_args: "Seq2SeqTrainingArguments",
 ) -> Union["Dataset", "IterableDataset"]:
-    r"""
-    Aligned dataset:
-        _prompt: [{"role": "user", "content": "..."}] * (2T - 1)
-        _response: [{"role": "assistant", "content": "..."}] * N (N > 1 for ranking dataset)
-        _system: "..."
-        _tools: "...",
-        _images: [],
-        _videos: [],
-        _audios: [],
-    """
+    r"""Align the dataset to a specific format.
 
+    Aligned dataset:
+    _prompt: [{"role": "user", "content": "..."}] * (2T - 1)
+    _response: [{"role": "assistant", "content": "..."}] * N (N > 1 for ranking dataset)
+    _system: "..."
+    _tools: "..."
+    _images: []
+    _videos: []
+    _audios: []
+    """
     column_names = list(next(iter(dataset)).keys())
     kwargs = {}
     if not data_args.streaming:

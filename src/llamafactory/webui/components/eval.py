@@ -12,7 +12,11 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+<<<<<<< HEAD
 from typing import TYPE_CHECKING, Dict
+=======
+from typing import TYPE_CHECKING
+>>>>>>> upstream/main
 
 from ...extras.packages import is_gradio_available
 from ..common import DEFAULT_DATA_DIR
@@ -30,7 +34,11 @@ if TYPE_CHECKING:
     from ..engine import Engine
 
 
+<<<<<<< HEAD
 def create_eval_tab(engine: "Engine") -> Dict[str, "Component"]:
+=======
+def create_eval_tab(engine: "Engine") -> dict[str, "Component"]:
+>>>>>>> upstream/main
     input_elems = engine.manager.get_base_elems()
     elem_dict = dict()
 

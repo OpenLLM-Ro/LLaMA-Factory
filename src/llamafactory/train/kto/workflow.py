@@ -1,4 +1,8 @@
+<<<<<<< HEAD
 # Copyright 2024 HuggingFace Inc. and the LlamaFactory team.
+=======
+# Copyright 2025 HuggingFace Inc. and the LlamaFactory team.
+>>>>>>> upstream/main
 #
 # This code is inspired by the HuggingFace's TRL library.
 # https://github.com/huggingface/trl/blob/v0.8.0/examples/scripts/kto.py
@@ -15,7 +19,11 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+<<<<<<< HEAD
 from typing import TYPE_CHECKING, List, Optional
+=======
+from typing import TYPE_CHECKING, Optional
+>>>>>>> upstream/main
 
 from ...data import KTODataCollatorWithPadding, get_dataset, get_template_and_fix_tokenizer
 from ...extras.constants import IGNORE_INDEX
@@ -37,7 +45,11 @@ def run_kto(
     data_args: "DataArguments",
     training_args: "Seq2SeqTrainingArguments",
     finetuning_args: "FinetuningArguments",
+<<<<<<< HEAD
     callbacks: Optional[List["TrainerCallback"]] = None,
+=======
+    callbacks: Optional[list["TrainerCallback"]] = None,
+>>>>>>> upstream/main
 ):
     tokenizer_module = load_tokenizer(model_args)
     tokenizer = tokenizer_module["tokenizer"]
@@ -59,9 +71,12 @@ def run_kto(
     else:
         ref_model = create_ref_model(model_args, finetuning_args)
 
+<<<<<<< HEAD
     # Update arguments
     training_args.remove_unused_columns = False  # important for multimodal and pairwise dataset
 
+=======
+>>>>>>> upstream/main
     # Initialize our Trainer
     trainer = CustomKTOTrainer(
         model=model,
@@ -82,7 +97,17 @@ def run_kto(
         trainer.save_metrics("train", train_result.metrics)
         trainer.save_state()
         if trainer.is_world_process_zero() and finetuning_args.plot_loss:
+<<<<<<< HEAD
             plot_loss(training_args.output_dir, keys=["loss", "eval_loss", "rewards/chosen"])
+=======
+            keys = ["loss", "rewards/chosen"]
+            if isinstance(dataset_module.get("eval_dataset"), dict):
+                keys += [f"eval_{key}_loss" for key in dataset_module["eval_dataset"].keys()]
+            else:
+                keys += ["eval_loss"]
+
+            plot_loss(training_args.output_dir, keys=keys)
+>>>>>>> upstream/main
 
     # Evaluation
     if training_args.do_eval:

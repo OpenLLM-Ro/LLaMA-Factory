@@ -1,4 +1,4 @@
-# Copyright 2024 EleutherAI, HuggingFace Inc., Yukang Chen, and the LlamaFactory team.
+# Copyright 2025 EleutherAI, HuggingFace Inc., Yukang Chen, and the LlamaFactory team.
 #
 # This code is based on the EleutherAI's GPT-NeoX and the HuggingFace's Transformers libraries.
 # https://github.com/huggingface/transformers/blob/v4.40.0/src/transformers/models/llama/modeling_llama.py
@@ -18,12 +18,11 @@
 # limitations under the License.
 
 import math
-from typing import TYPE_CHECKING, Optional, Tuple
+from typing import TYPE_CHECKING, Optional
 
 import torch
 import torch.nn as nn
 import transformers
-from transformers.models.llama.modeling_llama import Cache, apply_rotary_pos_emb, repeat_kv
 
 from ...extras import logging
 from ...extras.constants import SUPPORTED_CLASS_FOR_S2ATTN
@@ -32,7 +31,15 @@ from ...extras.packages import is_transformers_version_greater_than
 
 
 if not is_transformers_version_greater_than("4.48.0"):
-    from transformers.models.llama.modeling_llama import LlamaAttention, LlamaFlashAttention2, LlamaSdpaAttention
+    from transformers.modeling_flash_attention_utils import _flash_attention_forward
+    from transformers.models.llama.modeling_llama import (
+        Cache,
+        LlamaAttention,
+        LlamaFlashAttention2,
+        LlamaSdpaAttention,
+        apply_rotary_pos_emb,
+        repeat_kv,
+    )
 
 
 if TYPE_CHECKING:
@@ -54,14 +61,14 @@ def llama_attention_forward(
     past_key_value: Optional["Cache"] = None,
     output_attentions: bool = False,
     cache_position: Optional["torch.LongTensor"] = None,
-    position_embeddings: Optional[Tuple["torch.Tensor", "torch.Tensor"]] = None,
+    position_embeddings: Optional[tuple["torch.Tensor", "torch.Tensor"]] = None,
     **kwargs,
-) -> Tuple["torch.Tensor", Optional["torch.Tensor"], Optional[Tuple["torch.Tensor"]]]:
+) -> tuple["torch.Tensor", Optional["torch.Tensor"], Optional[tuple["torch.Tensor"]]]:
     bsz, q_len, _ = hidden_states.size()
 
-    query_states: "torch.Tensor" = self.q_proj(hidden_states)
-    key_states: "torch.Tensor" = self.k_proj(hidden_states)
-    value_states: "torch.Tensor" = self.v_proj(hidden_states)
+    query_states: torch.Tensor = self.q_proj(hidden_states)
+    key_states: torch.Tensor = self.k_proj(hidden_states)
+    value_states: torch.Tensor = self.v_proj(hidden_states)
 
     query_states = query_states.view(bsz, q_len, self.num_heads, self.head_dim).transpose(1, 2)
     key_states = key_states.view(bsz, q_len, self.num_key_value_heads, self.head_dim).transpose(1, 2)
@@ -139,17 +146,17 @@ def llama_flash_attention_2_forward(
     past_key_value: Optional["Cache"] = None,
     output_attentions: bool = False,
     cache_position: Optional["torch.LongTensor"] = None,
-    position_embeddings: Optional[Tuple["torch.Tensor", "torch.Tensor"]] = None,
+    position_embeddings: Optional[tuple["torch.Tensor", "torch.Tensor"]] = None,
     **kwargs,
-) -> Tuple["torch.Tensor", Optional["torch.Tensor"], Optional[Tuple["torch.Tensor"]]]:
+) -> tuple["torch.Tensor", Optional["torch.Tensor"], Optional[tuple["torch.Tensor"]]]:
     # LlamaFlashAttention2 attention does not support output_attentions
     output_attentions = False
 
     bsz, q_len, _ = hidden_states.size()
 
-    query_states: "torch.Tensor" = self.q_proj(hidden_states)
-    key_states: "torch.Tensor" = self.k_proj(hidden_states)
-    value_states: "torch.Tensor" = self.v_proj(hidden_states)
+    query_states: torch.Tensor = self.q_proj(hidden_states)
+    key_states: torch.Tensor = self.k_proj(hidden_states)
+    value_states: torch.Tensor = self.v_proj(hidden_states)
 
     query_states = query_states.view(bsz, q_len, self.num_heads, self.head_dim).transpose(1, 2)
     key_states = key_states.view(bsz, q_len, self.num_key_value_heads, self.head_dim).transpose(1, 2)
@@ -206,10 +213,7 @@ def llama_flash_attention_2_forward(
         if attention_mask is not None:
             attention_mask = attention_mask[:, :groupsz].repeat(num_groups, 1)
 
-    if is_transformers_version_greater_than("4.43.0"):
-        from transformers.modeling_flash_attention_utils import _flash_attention_forward
-
-        attn_output: "torch.Tensor" = _flash_attention_forward(
+        attn_output: torch.Tensor = _flash_attention_forward(
             query_states,
             key_states,
             value_states,
@@ -219,10 +223,6 @@ def llama_flash_attention_2_forward(
             sliding_window=getattr(self, "sliding_window", None),
             use_top_left_mask=self._flash_attn_uses_top_left_mask,
             is_causal=self.is_causal,
-        )
-    else:
-        attn_output: "torch.Tensor" = self._flash_attention_forward(
-            query_states, key_states, value_states, attention_mask, query_states.size(1), dropout=dropout_rate
         )
 
     if getattr(self.config, "group_size_ratio", None) and self.training:  # shift back
@@ -254,9 +254,9 @@ def llama_sdpa_attention_forward(
     past_key_value: Optional["Cache"] = None,
     output_attentions: bool = False,
     cache_position: Optional["torch.LongTensor"] = None,
-    position_embeddings: Optional[Tuple["torch.Tensor", "torch.Tensor"]] = None,
+    position_embeddings: Optional[tuple["torch.Tensor", "torch.Tensor"]] = None,
     **kwargs,
-) -> Tuple["torch.Tensor", Optional["torch.Tensor"], Optional[Tuple["torch.Tensor"]]]:
+) -> tuple["torch.Tensor", Optional["torch.Tensor"], Optional[tuple["torch.Tensor"]]]:
     if output_attentions:
         transformers_logger.warning_once(
             "SDPA does not support `output_attentions=True`. Falling back to the vanilla attention"
@@ -274,9 +274,9 @@ def llama_sdpa_attention_forward(
 
     bsz, q_len, _ = hidden_states.size()
 
-    query_states: "torch.Tensor" = self.q_proj(hidden_states)
-    key_states: "torch.Tensor" = self.k_proj(hidden_states)
-    value_states: "torch.Tensor" = self.v_proj(hidden_states)
+    query_states: torch.Tensor = self.q_proj(hidden_states)
+    key_states: torch.Tensor = self.k_proj(hidden_states)
+    value_states: torch.Tensor = self.v_proj(hidden_states)
 
     query_states = query_states.view(bsz, q_len, self.num_heads, self.head_dim).transpose(1, 2)
     key_states = key_states.view(bsz, q_len, self.num_key_value_heads, self.head_dim).transpose(1, 2)
@@ -350,7 +350,7 @@ def llama_sdpa_attention_forward(
 
 
 def _apply_llama_patch() -> None:
-    check_version("transformers>=4.41.2,<4.48.0")
+    check_version("transformers>=4.45.0,<4.48.0", mandatory=True)
     LlamaAttention.forward = llama_attention_forward
     LlamaFlashAttention2.forward = llama_flash_attention_2_forward
     LlamaSdpaAttention.forward = llama_sdpa_attention_forward

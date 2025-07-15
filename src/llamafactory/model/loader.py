@@ -13,13 +13,15 @@
 # limitations under the License.
 
 import os
-from typing import TYPE_CHECKING, Any, Dict, Optional, TypedDict
+from typing import TYPE_CHECKING, Any, Optional, TypedDict
 
 import torch
 from transformers import (
     AutoConfig,
     AutoModelForCausalLM,
+    AutoModelForImageTextToText,
     AutoModelForSeq2SeqLM,
+    AutoModelForTextToWaveform,
     AutoModelForVision2Seq,
     AutoProcessor,
     AutoTokenizer,
@@ -51,9 +53,8 @@ class TokenizerModule(TypedDict):
     processor: Optional["ProcessorMixin"]
 
 
-def _get_init_kwargs(model_args: "ModelArguments") -> Dict[str, Any]:
-    r"""
-    Gets arguments to load config/tokenizer/model.
+def _get_init_kwargs(model_args: "ModelArguments") -> dict[str, Any]:
+    r"""Get arguments to load config/tokenizer/model.
 
     Note: including inplace operation of model_args.
     """
@@ -68,13 +69,11 @@ def _get_init_kwargs(model_args: "ModelArguments") -> Dict[str, Any]:
 
 
 def load_tokenizer(model_args: "ModelArguments") -> "TokenizerModule":
-    r"""
-    Loads pretrained tokenizer and optionally loads processor.
+    r"""Load pretrained tokenizer and optionally loads processor.
 
     Note: including inplace operation of model_args.
     """
     init_kwargs = _get_init_kwargs(model_args)
-    config = load_config(model_args)
     try:
         tokenizer = AutoTokenizer.from_pretrained(
             model_args.model_name_or_path,
@@ -83,10 +82,10 @@ def load_tokenizer(model_args: "ModelArguments") -> "TokenizerModule":
             padding_side="right",
             **init_kwargs,
         )
-    except ValueError:  # try the fast one
+    except ValueError:  # try another one
         tokenizer = AutoTokenizer.from_pretrained(
             model_args.model_name_or_path,
-            use_fast=True,
+            use_fast=not model_args.use_fast_tokenizer,
             padding_side="right",
             **init_kwargs,
         )
@@ -94,25 +93,37 @@ def load_tokenizer(model_args: "ModelArguments") -> "TokenizerModule":
         raise OSError("Failed to load tokenizer.") from e
 
     patch_tokenizer(tokenizer, model_args)
+
     try:
-        processor = AutoProcessor.from_pretrained(model_args.model_name_or_path, **init_kwargs)
-        patch_processor(processor, config, tokenizer, model_args)
+        processor = AutoProcessor.from_pretrained(
+            model_args.model_name_or_path,
+            use_fast=model_args.use_fast_tokenizer,
+            **init_kwargs,
+        )
+    except ValueError:  # try another one
+        processor = AutoProcessor.from_pretrained(
+            model_args.model_name_or_path,
+            use_fast=not model_args.use_fast_tokenizer,
+            **init_kwargs,
+        )
     except Exception as e:
-        logger.debug(f"Processor was not found: {e}.")
+        logger.info_rank0(f"Failed to load processor: {e}.")
         processor = None
 
     # Avoid load tokenizer, see:
     # https://github.com/huggingface/transformers/blob/v4.40.0/src/transformers/models/auto/processing_auto.py#L324
     if processor is not None and "Processor" not in processor.__class__.__name__:
+        logger.debug("The loaded processor is not an instance of Processor. Dropping it.")
         processor = None
+
+    if processor is not None:
+        patch_processor(processor, tokenizer, model_args)
 
     return {"tokenizer": tokenizer, "processor": processor}
 
 
 def load_config(model_args: "ModelArguments") -> "PretrainedConfig":
-    r"""
-    Loads model config.
-    """
+    r"""Load model config."""
     init_kwargs = _get_init_kwargs(model_args)
     return AutoConfig.from_pretrained(model_args.model_name_or_path, **init_kwargs)
 
@@ -124,9 +135,7 @@ def load_model(
     is_trainable: bool = False,
     add_valuehead: bool = False,
 ) -> "PreTrainedModel":
-    r"""
-    Loads pretrained model.
-    """
+    r"""Load pretrained model."""
     init_kwargs = _get_init_kwargs(model_args)
     config = load_config(model_args)
     patch_config(config, tokenizer, model_args, init_kwargs, is_trainable)
@@ -138,7 +147,7 @@ def load_model(
         if model_args.adapter_name_or_path is not None:
             lazy_load = True
         elif is_trainable:
-            model = load_unsloth_pretrained_model(config, model_args)
+            model = load_unsloth_pretrained_model(config, model_args, finetuning_args)
 
     if model is None and not lazy_load:
         init_kwargs["config"] = config
@@ -147,10 +156,14 @@ def load_model(
         if model_args.mixture_of_depths == "load":
             model = load_mod_pretrained_model(**init_kwargs)
         else:
-            if type(config) in AutoModelForVision2Seq._model_mapping.keys():  # assume built-in models
+            if type(config) in AutoModelForVision2Seq._model_mapping.keys():  # image-text
                 load_class = AutoModelForVision2Seq
-            elif type(config) in AutoModelForSeq2SeqLM._model_mapping.keys():
+            elif type(config) in AutoModelForImageTextToText._model_mapping.keys():  # image-text
+                load_class = AutoModelForImageTextToText
+            elif type(config) in AutoModelForSeq2SeqLM._model_mapping.keys():  # audio-text
                 load_class = AutoModelForSeq2SeqLM
+            elif type(config) in AutoModelForTextToWaveform._model_mapping.keys():  # audio hack for qwen2_5_omni
+                load_class = AutoModelForTextToWaveform
             else:
                 load_class = AutoModelForCausalLM
 
@@ -158,6 +171,8 @@ def load_model(
                 model = load_class.from_config(config, trust_remote_code=model_args.trust_remote_code)
             else:
                 model = load_class.from_pretrained(**init_kwargs)
+                if getattr(model.config, "model_type", None) == "qwen2_5_omni":
+                    model = model.thinker  # use part of Omni model
 
         if model_args.mixture_of_depths == "convert":
             model = convert_pretrained_model_to_mod(model, config, model_args)
@@ -194,8 +209,9 @@ def load_model(
 
     trainable_params, all_param = count_parameters(model)
     if is_trainable:
-        param_stats = "trainable params: {:,} || all params: {:,} || trainable%: {:.4f}".format(
-            trainable_params, all_param, 100 * trainable_params / all_param
+        param_stats = (
+            f"trainable params: {trainable_params:,} || "
+            f"all params: {all_param:,} || trainable%: {100 * trainable_params / all_param:.4f}"
         )
     else:
         param_stats = f"all params: {all_param:,}"

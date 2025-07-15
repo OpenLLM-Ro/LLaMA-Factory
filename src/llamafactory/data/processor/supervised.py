@@ -14,7 +14,7 @@
 
 from collections import defaultdict
 from dataclasses import dataclass
-from typing import TYPE_CHECKING, Any, Dict, List, Optional, Sequence, Tuple
+from typing import TYPE_CHECKING, Any, Optional
 
 from ...extras import logging
 from ...extras.constants import IGNORE_INDEX
@@ -32,14 +32,14 @@ logger = logging.get_logger(__name__)
 class SupervisedDatasetProcessor(DatasetProcessor):
     def _encode_data_example(
         self,
-        prompt: Sequence[Dict[str, str]],
-        response: Sequence[Dict[str, str]],
+        prompt: list[dict[str, str]],
+        response: list[dict[str, str]],
         system: Optional[str],
         tools: Optional[str],
-        images: Sequence["ImageInput"],
-        videos: Sequence["VideoInput"],
-        audios: Sequence["AudioInput"],
-    ) -> Tuple[List[int], List[int]]:
+        images: list["ImageInput"],
+        videos: list["VideoInput"],
+        audios: list["AudioInput"],
+    ) -> tuple[list[int], list[int]]:
         messages = self.template.mm_plugin.process_messages(prompt + response, images, videos, audios, self.processor)
         input_ids, labels = self.template.mm_plugin.process_token_ids(
             [], [], images, videos, audios, self.tokenizer, self.processor
@@ -85,7 +85,7 @@ class SupervisedDatasetProcessor(DatasetProcessor):
 
         return input_ids, labels
 
-    def preprocess_dataset(self, examples: Dict[str, List[Any]]) -> Dict[str, List[Any]]:
+    def preprocess_dataset(self, examples: dict[str, list[Any]]) -> dict[str, list[Any]]:
         # build inputs with format `<bos> X Y <eos>` and labels with format `<ignore> ... <ignore> Y <eos>`
         # for multiturn examples, we only mask the prompt part in each prompt-response pair.
         model_inputs = defaultdict(list)
@@ -114,7 +114,7 @@ class SupervisedDatasetProcessor(DatasetProcessor):
 
         return model_inputs
 
-    def print_data_example(self, example: Dict[str, List[int]]) -> None:
+    def print_data_example(self, example: dict[str, list[int]]) -> None:
         valid_labels = list(filter(lambda x: x != IGNORE_INDEX, example["labels"]))
         print("input_ids:\n{}".format(example["input_ids"]))
         print("inputs:\n{}".format(self.tokenizer.decode(example["input_ids"], skip_special_tokens=False)))
@@ -124,7 +124,7 @@ class SupervisedDatasetProcessor(DatasetProcessor):
 
 @dataclass
 class PackedSupervisedDatasetProcessor(SupervisedDatasetProcessor):
-    def preprocess_dataset(self, examples: Dict[str, List[Any]]) -> Dict[str, List[Any]]:
+    def preprocess_dataset(self, examples: dict[str, list[Any]]) -> dict[str, list[Any]]:
         # TODO: use `position_ids` to achieve packing
         # build inputs with format `<bos> X1 Y1 <eos> <bos> X2 Y2 <eos>`
         # and labels with format `<ignore> ... <ignore> Y1 <eos> <ignore> ... <ignore> Y2 <eos>`
@@ -164,11 +164,12 @@ class PackedSupervisedDatasetProcessor(SupervisedDatasetProcessor):
         model_inputs = defaultdict(list)
         knapsacks = greedy_knapsack(lengths, self.data_args.cutoff_len)
         for knapsack in knapsacks:
-            packed_input_ids, packed_attention_masks, packed_labels = [], [], []
+            packed_input_ids, packed_attention_masks, packed_position_ids, packed_labels = [], [], [], []
             packed_images, packed_videos, packed_audios = [], [], []
             for i, length in enumerate(knapsack):
                 index = length2indexes[length].pop()
                 packed_input_ids += batch_input_ids[index]
+                packed_position_ids += list(range(len(batch_input_ids[index])))  # NOTE: pad_to_multiple_of ignore this
                 packed_labels += batch_labels[index]
                 packed_images += batch_images[index]
                 packed_videos += batch_videos[index]
@@ -181,6 +182,7 @@ class PackedSupervisedDatasetProcessor(SupervisedDatasetProcessor):
             if len(packed_input_ids) < self.data_args.cutoff_len + 1:  # avoid flash_attn drops attn mask
                 pad_length = self.data_args.cutoff_len - len(packed_input_ids) + 1
                 packed_input_ids += [self.tokenizer.pad_token_id] * pad_length
+                packed_position_ids += [0] * pad_length
                 packed_labels += [IGNORE_INDEX] * pad_length
                 if self.data_args.neat_packing:
                     packed_attention_masks += [0] * pad_length
@@ -192,6 +194,7 @@ class PackedSupervisedDatasetProcessor(SupervisedDatasetProcessor):
 
             model_inputs["input_ids"].append(packed_input_ids)
             model_inputs["attention_mask"].append(packed_attention_masks)
+            model_inputs["position_ids"].append(packed_position_ids)
             model_inputs["labels"].append(packed_labels)
             model_inputs["images"].append(packed_images or None)
             model_inputs["videos"].append(packed_videos or None)

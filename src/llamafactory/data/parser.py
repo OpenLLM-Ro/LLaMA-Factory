@@ -15,9 +15,9 @@
 import json
 import os
 from dataclasses import dataclass
-from typing import Any, Dict, List, Literal, Optional, Sequence
+from typing import Any, Literal, Optional
 
-from transformers.utils import cached_file
+from huggingface_hub import hf_hub_download
 
 from ..extras.constants import DATA_CONFIG
 from ..extras.misc import use_modelscope, use_openmind
@@ -25,9 +25,7 @@ from ..extras.misc import use_modelscope, use_openmind
 
 @dataclass
 class DatasetAttr:
-    r"""
-    Dataset attributes.
-    """
+    r"""Dataset attributes."""
 
     # basic configs
     load_from: Literal["hf_hub", "ms_hub", "om_hub", "script", "file"]
@@ -68,10 +66,10 @@ class DatasetAttr:
     def __repr__(self) -> str:
         return self.dataset_name
 
-    def set_attr(self, key: str, obj: Dict[str, Any], default: Optional[Any] = None) -> None:
+    def set_attr(self, key: str, obj: dict[str, Any], default: Optional[Any] = None) -> None:
         setattr(self, key, obj.get(key, default))
 
-    def join(self, attr: Dict[str, Any]) -> None:
+    def join(self, attr: dict[str, Any]) -> None:
         self.set_attr("formatting", attr, default="alpaca")
         self.set_attr("ranking", attr, default=False)
         self.set_attr("subset", attr)
@@ -92,10 +90,8 @@ class DatasetAttr:
                 self.set_attr(tag, attr["tags"])
 
 
-def get_dataset_list(dataset_names: Optional[Sequence[str]], dataset_dir: str) -> List["DatasetAttr"]:
-    r"""
-    Gets the attributes of the datasets.
-    """
+def get_dataset_list(dataset_names: Optional[list[str]], dataset_dir: str) -> list["DatasetAttr"]:
+    r"""Get the attributes of the datasets."""
     if dataset_names is None:
         dataset_names = []
 
@@ -103,7 +99,7 @@ def get_dataset_list(dataset_names: Optional[Sequence[str]], dataset_dir: str) -
         dataset_info = None
     else:
         if dataset_dir.startswith("REMOTE:"):
-            config_path = cached_file(path_or_repo_id=dataset_dir[7:], filename=DATA_CONFIG, repo_type="dataset")
+            config_path = hf_hub_download(repo_id=dataset_dir[7:], filename=DATA_CONFIG, repo_type="dataset")
         else:
             config_path = os.path.join(dataset_dir, DATA_CONFIG)
 
@@ -116,15 +112,10 @@ def get_dataset_list(dataset_names: Optional[Sequence[str]], dataset_dir: str) -
 
             dataset_info = None
 
-    dataset_list: List["DatasetAttr"] = []
+    dataset_list: list[DatasetAttr] = []
     for name in dataset_names:
         if dataset_info is None:  # dataset_dir is ONLINE
-            if use_modelscope():
-                load_from = "ms_hub"
-            elif use_openmind():
-                load_from = "om_hub"
-            else:
-                load_from = "hf_hub"
+            load_from = "ms_hub" if use_modelscope() else "om_hub" if use_openmind() else "hf_hub"
             dataset_attr = DatasetAttr(load_from, dataset_name=name)
             dataset_list.append(dataset_attr)
             continue
@@ -145,6 +136,8 @@ def get_dataset_list(dataset_names: Optional[Sequence[str]], dataset_dir: str) -
                 dataset_attr = DatasetAttr("hf_hub", dataset_name=dataset_info[name]["hf_hub_url"])
         elif "script_url" in dataset_info[name]:
             dataset_attr = DatasetAttr("script", dataset_name=dataset_info[name]["script_url"])
+        elif "cloud_file_name" in dataset_info[name]:
+            dataset_attr = DatasetAttr("cloud_file", dataset_name=dataset_info[name]["cloud_file_name"])
         else:
             dataset_attr = DatasetAttr("file", dataset_name=dataset_info[name]["file_name"])
 

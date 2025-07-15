@@ -1,4 +1,8 @@
+<<<<<<< HEAD
 # Copyright 2024 HuggingFace Inc. and the LlamaFactory team.
+=======
+# Copyright 2025 HuggingFace Inc. and the LlamaFactory team.
+>>>>>>> upstream/main
 #
 # This code is inspired by the HuggingFace's transformers library.
 # https://github.com/huggingface/transformers/blob/v4.40.0/src/transformers/trainer_seq2seq.py
@@ -18,7 +22,11 @@
 import json
 import os
 from types import MethodType
+<<<<<<< HEAD
 from typing import TYPE_CHECKING, Any, Dict, List, Optional, Tuple, Union
+=======
+from typing import TYPE_CHECKING, Any, Optional, Union
+>>>>>>> upstream/main
 
 import numpy as np
 import torch
@@ -44,23 +52,42 @@ logger = logging.get_logger(__name__)
 
 
 class CustomSeq2SeqTrainer(Seq2SeqTrainer):
+<<<<<<< HEAD
     r"""
     Inherits Seq2SeqTrainer to compute generative metrics such as BLEU and ROUGE.
     """
+=======
+    r"""Inherits Seq2SeqTrainer to compute generative metrics such as BLEU and ROUGE."""
+>>>>>>> upstream/main
 
     def __init__(
         self,
         finetuning_args: "FinetuningArguments",
         processor: Optional["ProcessorMixin"],
+<<<<<<< HEAD
         gen_kwargs: Optional[Dict[str, Any]] = None,
+=======
+        gen_kwargs: Optional[dict[str, Any]] = None,
+>>>>>>> upstream/main
         **kwargs,
     ) -> None:
         if is_transformers_version_greater_than("4.46"):
             kwargs["processing_class"] = kwargs.pop("tokenizer")
         else:
+<<<<<<< HEAD
             self.processing_class: "PreTrainedTokenizer" = kwargs.get("tokenizer")
 
         super().__init__(**kwargs)
+=======
+            self.processing_class: PreTrainedTokenizer = kwargs.get("tokenizer")
+
+        super().__init__(**kwargs)
+        if processor is not None:
+            # avoid wrong loss under gradient accumulation
+            # https://github.com/huggingface/transformers/pull/36044#issuecomment-2746657112
+            self.model_accepts_loss_kwargs = False
+
+>>>>>>> upstream/main
         self.finetuning_args = finetuning_args
         if gen_kwargs is not None:
             # https://github.com/huggingface/transformers/blob/v4.45.0/src/transformers/trainer_seq2seq.py#L287
@@ -89,16 +116,29 @@ class CustomSeq2SeqTrainer(Seq2SeqTrainer):
         return super().create_scheduler(num_training_steps, optimizer)
 
     @override
+<<<<<<< HEAD
     def _get_train_sampler(self) -> Optional["torch.utils.data.Sampler"]:
         if self.finetuning_args.disable_shuffling:
             return torch.utils.data.SequentialSampler(self.train_dataset)
 
         return super()._get_train_sampler()
+=======
+    def _get_train_sampler(self, *args, **kwargs) -> Optional["torch.utils.data.Sampler"]:
+        if self.finetuning_args.disable_shuffling:
+            return torch.utils.data.SequentialSampler(self.train_dataset)
+
+        return super()._get_train_sampler(*args, **kwargs)
+
+    @override
+    def compute_loss(self, model, inputs, *args, **kwargs):
+        return super().compute_loss(model, inputs, *args, **kwargs)
+>>>>>>> upstream/main
 
     @override
     def prediction_step(
         self,
         model: "torch.nn.Module",
+<<<<<<< HEAD
         inputs: Dict[str, Union["torch.Tensor", Any]],
         prediction_loss_only: bool,
         ignore_keys: Optional[List[str]] = None,
@@ -106,6 +146,14 @@ class CustomSeq2SeqTrainer(Seq2SeqTrainer):
     ) -> Tuple[Optional[float], Optional["torch.Tensor"], Optional["torch.Tensor"]]:
         r"""
         Removes the prompt part in the generated tokens.
+=======
+        inputs: dict[str, Union["torch.Tensor", Any]],
+        prediction_loss_only: bool,
+        ignore_keys: Optional[list[str]] = None,
+        **gen_kwargs,
+    ) -> tuple[Optional[float], Optional["torch.Tensor"], Optional["torch.Tensor"]]:
+        r"""Remove the prompt part in the generated tokens.
+>>>>>>> upstream/main
 
         Subclass and override to inject custom behavior.
         """
@@ -126,8 +174,12 @@ class CustomSeq2SeqTrainer(Seq2SeqTrainer):
     def save_predictions(
         self, dataset: "Dataset", predict_results: "PredictionOutput", skip_special_tokens: bool = True
     ) -> None:
+<<<<<<< HEAD
         r"""
         Saves model predictions to `output_dir`.
+=======
+        r"""Save model predictions to `output_dir`.
+>>>>>>> upstream/main
 
         A custom behavior that not contained in Seq2SeqTrainer.
         """

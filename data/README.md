@@ -47,7 +47,9 @@ Currently we support datasets in **alpaca** and **sharegpt** format.
 
 * [Example dataset](alpaca_en_demo.json)
 
-In supervised fine-tuning, the `instruction` column will be concatenated with the `input` column and used as the human prompt, then the human prompt would be `instruction\ninput`. The `output` column represents the model response.
+In supervised fine-tuning, the `instruction` column will be concatenated with the `input` column and used as the user prompt, then the user prompt would be `instruction\ninput`. The `output` column represents the model response.
+
+For reasoning models, if the dataset contains chain-of-thought (CoT), the CoT needs to be placed in the model responses, such as `<think>cot</think>output`.
 
 The `system` column will be used as the system prompt if specified.
 
@@ -83,9 +85,14 @@ Regarding the above dataset, the *dataset description* in `dataset_info.json` sh
 }
 ```
 
+> [!TIP]  
+> If the model has reasoning capabilities (e.g. Qwen3) but the dataset does not contain chain-of-thought (CoT), LLaMA-Factory will automatically add empty CoT to the data. When `enable_thinking` is `True` (slow thinking, by default), the empty CoT will be added to the model responses and loss computation will be considered; otherwise (fast thinking), it will be added to the user prompts and loss computation will be ignored. Please keep the `enable_thinking` parameter consistent during training and inference.
+>
+> If you want to train data containing CoT with slow thinking and data without CoT with fast thinking, you can set `enable_thinking` to `None`. However, this feature is relatively complicated and should be used with caution.
+
 ### Pre-training Dataset
 
-- [Example dataset](c4_demo.json)
+- [Example dataset](c4_demo.jsonl)
 
 In pre-training, only the `text` column will be used for model learning.
 
@@ -116,8 +123,8 @@ It requires a better response in `chosen` column and a worse response in `reject
 ```json
 [
   {
-    "instruction": "human instruction (required)",
-    "input": "human input (optional)",
+    "instruction": "user instruction (required)",
+    "input": "user input (optional)",
     "chosen": "chosen answer (required)",
     "rejected": "rejected answer (required)"
   }
@@ -163,7 +170,7 @@ An additional column `audios` is required. Please refer to the [sharegpt](#share
 
 Compared to the alpaca format, the sharegpt format allows the datasets have **more roles**, such as human, gpt, observation and function. They are presented in a list of objects in the `conversations` column.
 
-Note that the human and observation should appear in odd positions, while gpt and function should appear in even positions.
+Note that the human and observation should appear in odd positions, while gpt and function should appear in even positions. The gpt and function will be learned by the model.
 
 ```json
 [
@@ -171,7 +178,7 @@ Note that the human and observation should appear in odd positions, while gpt an
     "conversations": [
       {
         "from": "human",
-        "value": "human instruction"
+        "value": "user instruction"
       },
       {
         "from": "function_call",
@@ -222,7 +229,7 @@ Preference datasets in sharegpt format also require a better message in `chosen`
     "conversations": [
       {
         "from": "human",
-        "value": "human instruction"
+        "value": "user instruction"
       },
       {
         "from": "gpt",
@@ -230,7 +237,7 @@ Preference datasets in sharegpt format also require a better message in `chosen`
       },
       {
         "from": "human",
-        "value": "human instruction"
+        "value": "user instruction"
       }
     ],
     "chosen": {
@@ -272,7 +279,7 @@ KTO datasets require a extra `kto_tag` column containing the boolean human feedb
     "conversations": [
       {
         "from": "human",
-        "value": "human instruction"
+        "value": "user instruction"
       },
       {
         "from": "gpt",
@@ -311,7 +318,7 @@ The number of images should be identical to the `<image>` tokens in the conversa
     "conversations": [
       {
         "from": "human",
-        "value": "<image>human instruction"
+        "value": "<image>user instruction"
       },
       {
         "from": "gpt",
@@ -352,7 +359,7 @@ The number of videos should be identical to the `<video>` tokens in the conversa
     "conversations": [
       {
         "from": "human",
-        "value": "<video>human instruction"
+        "value": "<video>user instruction"
       },
       {
         "from": "gpt",
@@ -393,7 +400,7 @@ The number of audios should be identical to the `<audio>` tokens in the conversa
     "conversations": [
       {
         "from": "human",
-        "value": "<audio>human instruction"
+        "value": "<audio>user instruction"
       },
       {
         "from": "gpt",
@@ -434,7 +441,7 @@ The openai format is simply a special case of the sharegpt format, where the fir
       },
       {
         "role": "user",
-        "content": "human instruction"
+        "content": "user instruction"
       },
       {
         "role": "assistant",

@@ -14,7 +14,6 @@
 
 import os
 import re
-from typing import List
 
 from setuptools import find_packages, setup
 
@@ -27,14 +26,14 @@ def get_version() -> str:
         return version
 
 
-def get_requires() -> List[str]:
+def get_requires() -> list[str]:
     with open("requirements.txt", encoding="utf-8") as f:
         file_content = f.read()
         lines = [line.strip() for line in file_content.strip().split("\n") if not line.startswith("#")]
         return lines
 
 
-def get_console_scripts() -> List[str]:
+def get_console_scripts() -> list[str]:
     console_scripts = ["llamafactory-cli = llamafactory.cli:main"]
     if os.getenv("ENABLE_SHORT_CONSOLE", "1").lower() in ["true", "y", "1"]:
         console_scripts.append("lmf = llamafactory.cli:main")
@@ -43,23 +42,22 @@ def get_console_scripts() -> List[str]:
 
 
 extra_require = {
-    "torch": ["torch>=1.13.1"],
-    "torch-npu": ["torch==2.4.0", "torch-npu==2.4.0.post2", "decorator"],
+    "torch": ["torch>=2.0.0", "torchvision>=0.15.0"],
+    "torch-npu": ["torch-npu==2.5.1", "torchvision==0.20.1", "decorator"],
     "metrics": ["nltk", "jieba", "rouge-chinese"],
-    "deepspeed": ["deepspeed>=0.10.0,<=0.16.4"],
-    "liger-kernel": ["liger-kernel"],
+    "deepspeed": ["deepspeed>=0.10.0,<=0.16.9"],
+    "liger-kernel": ["liger-kernel>=0.5.5"],
     "bitsandbytes": ["bitsandbytes>=0.39.0"],
     "hqq": ["hqq"],
     "eetq": ["eetq"],
-    "gptq": ["optimum>=1.17.0", "auto-gptq>=0.5.0"],
-    "awq": ["autoawq"],
+    "gptq": ["optimum>=1.24.0", "gptqmodel>=2.0.0"],
     "aqlm": ["aqlm[gpu]>=1.1.0"],
-    "vllm": ["vllm>=0.4.3,<=0.7.3"],
+    "vllm": ["vllm>=0.4.3,<=0.9.1"],
+    "sglang": ["sglang[srt]>=0.4.5", "transformers==4.51.1"],
     "galore": ["galore-torch"],
     "apollo": ["apollo-torch"],
     "badam": ["badam>=1.2.1"],
     "adam-mini": ["adam-mini"],
-    "qwen": ["transformers_stream_generator"],
     "minicpm_v": [
         "soundfile",
         "torchvision",
@@ -70,10 +68,9 @@ extra_require = {
         "referencing",
         "jsonschema_specifications",
     ],
-    "modelscope": ["modelscope"],
     "openmind": ["openmind"],
     "swanlab": ["swanlab"],
-    "dev": ["pre-commit", "ruff", "pytest"],
+    "dev": ["pre-commit", "ruff", "pytest", "build"],
 }
 
 
@@ -82,11 +79,11 @@ def main():
         name="llamafactory",
         version=get_version(),
         author="hiyouga",
-        author_email="hiyouga AT buaa.edu.cn",
-        description="Easy-to-use LLM fine-tuning framework",
+        author_email="hiyouga@buaa.edu.cn",
+        description="Unified Efficient Fine-Tuning of 100+ LLMs",
         long_description=open("README.md", encoding="utf-8").read(),
         long_description_content_type="text/markdown",
-        keywords=["LLaMA", "BLOOM", "Falcon", "LLM", "ChatGPT", "transformer", "pytorch", "deep learning"],
+        keywords=["AI", "LLM", "GPT", "ChatGPT", "Llama", "Transformer", "DeepSeek", "Pytorch"],
         license="Apache 2.0 License",
         url="https://github.com/hiyouga/LLaMA-Factory",
         package_dir={"": "src"},

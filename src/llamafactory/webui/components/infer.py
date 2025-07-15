@@ -12,7 +12,11 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+<<<<<<< HEAD
 from typing import TYPE_CHECKING, Dict
+=======
+from typing import TYPE_CHECKING
+>>>>>>> upstream/main
 
 from ...extras.packages import is_gradio_available
 from ..common import is_multimodal
@@ -29,13 +33,23 @@ if TYPE_CHECKING:
     from ..engine import Engine
 
 
+<<<<<<< HEAD
 def create_infer_tab(engine: "Engine") -> Dict[str, "Component"]:
+=======
+def create_infer_tab(engine: "Engine") -> dict[str, "Component"]:
+>>>>>>> upstream/main
     input_elems = engine.manager.get_base_elems()
     elem_dict = dict()
 
     with gr.Row():
+<<<<<<< HEAD
         infer_backend = gr.Dropdown(choices=["huggingface", "vllm"], value="huggingface")
         infer_dtype = gr.Dropdown(choices=["auto", "float16", "bfloat16", "float32"], value="auto")
+=======
+        infer_backend = gr.Dropdown(choices=["huggingface", "vllm", "sglang"], value="huggingface")
+        infer_dtype = gr.Dropdown(choices=["auto", "float16", "bfloat16", "float32"], value="auto")
+        extra_args = gr.Textbox(value='{"vllm_enforce_eager": true}')
+>>>>>>> upstream/main
 
     with gr.Row():
         load_btn = gr.Button()
@@ -43,11 +57,19 @@ def create_infer_tab(engine: "Engine") -> Dict[str, "Component"]:
 
     info_box = gr.Textbox(show_label=False, interactive=False)
 
+<<<<<<< HEAD
     input_elems.update({infer_backend, infer_dtype})
+=======
+    input_elems.update({infer_backend, infer_dtype, extra_args})
+>>>>>>> upstream/main
     elem_dict.update(
         dict(
             infer_backend=infer_backend,
             infer_dtype=infer_dtype,
+<<<<<<< HEAD
+=======
+            extra_args=extra_args,
+>>>>>>> upstream/main
             load_btn=load_btn,
             unload_btn=unload_btn,
             info_box=info_box,

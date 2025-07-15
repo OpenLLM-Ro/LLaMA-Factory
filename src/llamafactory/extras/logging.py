@@ -1,4 +1,4 @@
-# Copyright 2024 Optuna, HuggingFace Inc. and the LlamaFactory team.
+# Copyright 2025 Optuna, HuggingFace Inc. and the LlamaFactory team.
 #
 # This code is inspired by the HuggingFace's transformers library.
 # https://github.com/huggingface/transformers/blob/v4.40.0/src/transformers/utils/logging.py
@@ -32,9 +32,7 @@ _default_log_level: "logging._Level" = logging.INFO
 
 
 class LoggerHandler(logging.Handler):
-    r"""
-    Redirects the logging output to the logging file for LLaMA Board.
-    """
+    r"""Redirect the logging output to the logging file for LLaMA Board."""
 
     def __init__(self, output_dir: str) -> None:
         super().__init__()
@@ -52,7 +50,7 @@ class LoggerHandler(logging.Handler):
 
     def _write_log(self, log_entry: str) -> None:
         with open(self.running_log, "a", encoding="utf-8") as f:
-            f.write(log_entry + "\n\n")
+            f.write(log_entry + "\n")
 
     def emit(self, record) -> None:
         if record.name == "httpx":
@@ -67,9 +65,7 @@ class LoggerHandler(logging.Handler):
 
 
 class _Logger(logging.Logger):
-    r"""
-    A logger that supports rank0 logging.
-    """
+    r"""A logger that supports rank0 logging."""
 
     def info_rank0(self, *args, **kwargs) -> None:
         self.info(*args, **kwargs)
@@ -82,10 +78,8 @@ class _Logger(logging.Logger):
 
 
 def _get_default_logging_level() -> "logging._Level":
-    r"""
-    Returns the default logging level.
-    """
-    env_level_str = os.environ.get("LLAMAFACTORY_VERBOSITY", None)
+    r"""Return the default logging level."""
+    env_level_str = os.getenv("LLAMAFACTORY_VERBOSITY", None)
     if env_level_str:
         if env_level_str.upper() in logging._nameToLevel:
             return logging._nameToLevel[env_level_str.upper()]
@@ -104,9 +98,7 @@ def _get_library_root_logger() -> "_Logger":
 
 
 def _configure_library_root_logger() -> None:
-    r"""
-    Configures root logger using a stdout stream handler with an explicit format.
-    """
+    r"""Configure root logger using a stdout stream handler with an explicit format."""
     global _default_handler
 
     with _thread_lock:
@@ -126,9 +118,7 @@ def _configure_library_root_logger() -> None:
 
 
 def get_logger(name: Optional[str] = None) -> "_Logger":
-    r"""
-    Returns a logger with the specified name. It it not supposed to be accessed externally.
-    """
+    r"""Return a logger with the specified name. It it not supposed to be accessed externally."""
     if name is None:
         name = _get_library_name()
 
@@ -137,17 +127,13 @@ def get_logger(name: Optional[str] = None) -> "_Logger":
 
 
 def add_handler(handler: "logging.Handler") -> None:
-    r"""
-    Adds a handler to the root logger.
-    """
+    r"""Add a handler to the root logger."""
     _configure_library_root_logger()
     _get_library_root_logger().addHandler(handler)
 
 
 def remove_handler(handler: logging.Handler) -> None:
-    r"""
-    Removes a handler to the root logger.
-    """
+    r"""Remove a handler to the root logger."""
     _configure_library_root_logger()
     _get_library_root_logger().removeHandler(handler)
 

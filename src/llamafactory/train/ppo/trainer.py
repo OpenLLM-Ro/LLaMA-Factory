@@ -1,4 +1,8 @@
+<<<<<<< HEAD
 # Copyright 2024 HuggingFace Inc. and the LlamaFactory team.
+=======
+# Copyright 2025 HuggingFace Inc. and the LlamaFactory team.
+>>>>>>> upstream/main
 #
 # This code is inspired by the HuggingFace's TRL library.
 # https://github.com/huggingface/trl/blob/v0.8.0/trl/trainer/ppo_trainer.py
@@ -20,7 +24,11 @@ import os
 import sys
 import warnings
 from types import MethodType
+<<<<<<< HEAD
 from typing import TYPE_CHECKING, Any, Dict, List, Optional, Tuple
+=======
+from typing import TYPE_CHECKING, Any, Optional
+>>>>>>> upstream/main
 
 import torch
 from accelerate.utils import DistributedDataParallelKwargs
@@ -62,9 +70,13 @@ logger = logging.get_logger(__name__)
 
 
 class CustomPPOTrainer(PPOTrainer, Trainer):
+<<<<<<< HEAD
     r"""
     Inherits PPOTrainer.
     """
+=======
+    r"""Inherit PPOTrainer."""
+>>>>>>> upstream/main
 
     def __init__(
         self,
@@ -72,7 +84,11 @@ class CustomPPOTrainer(PPOTrainer, Trainer):
         training_args: "Seq2SeqTrainingArguments",
         finetuning_args: "FinetuningArguments",
         generating_args: "GeneratingArguments",
+<<<<<<< HEAD
         callbacks: Optional[List["TrainerCallback"]],
+=======
+        callbacks: Optional[list["TrainerCallback"]],
+>>>>>>> upstream/main
         model: "AutoModelForCausalLMWithValueHead",
         reward_model: Optional["AutoModelForCausalLMWithValueHead"],
         ref_model: Optional["AutoModelForCausalLMWithValueHead"],
@@ -187,9 +203,13 @@ class CustomPPOTrainer(PPOTrainer, Trainer):
             self.add_callback(BAdamCallback)
 
     def ppo_train(self, resume_from_checkpoint: Optional[str] = None) -> None:
+<<<<<<< HEAD
         r"""
         Implements training loop for the PPO stage, like _inner_training_loop() in Huggingface's Trainer.
         """
+=======
+        r"""Implement training loop for the PPO stage, like _inner_training_loop() in Huggingface's Trainer."""
+>>>>>>> upstream/main
         if resume_from_checkpoint is not None:
             raise ValueError("`resume_from_checkpoint` will be supported in the future version.")
 
@@ -221,9 +241,13 @@ class CustomPPOTrainer(PPOTrainer, Trainer):
         logger.info_rank0(f"  Num Epochs = {num_train_epochs:,}")
         logger.info_rank0(f"  Instantaneous batch size per device = {self.args.per_device_train_batch_size:,}")
         logger.info_rank0(
+<<<<<<< HEAD
             "  Total train batch size (w. parallel, buffer, distributed & accumulation) = {:,}".format(
                 total_train_batch_size
             )
+=======
+            f"  Total train batch size (w. parallel, buffer, distributed & accumulation) = {total_train_batch_size:,}"
+>>>>>>> upstream/main
         )
         logger.info_rank0(f"  Gradient Accumulation steps = {self.args.gradient_accumulation_steps:,}")
         logger.info_rank0(f"  Num optimization epochs per batch = {self.finetuning_args.ppo_epochs:,}")
@@ -247,9 +271,17 @@ class CustomPPOTrainer(PPOTrainer, Trainer):
             self.tokenizer.padding_side = "right"  # change padding side
             queries, responses, rewards = [], [], []
             for idx in range(0, self.config.batch_size, self.config.mini_batch_size):
+<<<<<<< HEAD
                 mini_batch_queries, mini_batch_responses = self.get_inputs(
                     batch[idx : idx + self.config.mini_batch_size]
                 )
+=======
+                mini_batch = {
+                    "input_ids": batch["input_ids"][idx : idx + self.config.mini_batch_size],
+                    "attention_mask": batch["attention_mask"][idx : idx + self.config.mini_batch_size],
+                }
+                mini_batch_queries, mini_batch_responses = self.get_inputs(mini_batch)
+>>>>>>> upstream/main
                 mini_batch_rewards = self.get_rewards(mini_batch_queries, mini_batch_responses)
                 queries.extend(mini_batch_queries)
                 responses.extend(mini_batch_responses)
@@ -339,21 +371,34 @@ class CustomPPOTrainer(PPOTrainer, Trainer):
         return lr_scheduler
 
     @torch.no_grad()
+<<<<<<< HEAD
     def get_inputs(self, batch: Dict[str, "torch.Tensor"]) -> Tuple[List["torch.Tensor"], List["torch.Tensor"]]:
         r"""
         Generates model's responses given queries.
         """
+=======
+    def get_inputs(self, batch: dict[str, "torch.Tensor"]) -> tuple[list["torch.Tensor"], list["torch.Tensor"]]:
+        r"""Generate model's responses given queries."""
+>>>>>>> upstream/main
         if batch["input_ids"].size(0) == 1:  # handle llama2 ppo with gradient accumulation > 1
             start_index = (batch["input_ids"][0] != self.tokenizer.pad_token_id).nonzero()[0].item()
             for k, v in batch.items():
                 batch[k] = v[:, start_index:]
 
         with unwrap_model_for_generation(self.model, self.accelerator) as unwrapped_model:
+<<<<<<< HEAD
             unwrapped_model: "AutoModelForCausalLMWithValueHead" = self.accelerator.unwrap_model(self.model)
             if self.model_args.upcast_layernorm:
                 layernorm_params = dump_layernorm(unwrapped_model)
 
             generate_output: "torch.Tensor" = unwrapped_model.generate(
+=======
+            unwrapped_model: AutoModelForCausalLMWithValueHead = self.accelerator.unwrap_model(self.model)
+            if self.model_args.upcast_layernorm:
+                layernorm_params = dump_layernorm(unwrapped_model)
+
+            generate_output: torch.Tensor = unwrapped_model.generate(
+>>>>>>> upstream/main
                 generation_config=self.generation_config, logits_processor=get_logits_processor(), **batch
             )
             if self.model_args.upcast_layernorm:
@@ -381,11 +426,18 @@ class CustomPPOTrainer(PPOTrainer, Trainer):
     @torch.no_grad()
     def get_rewards(
         self,
+<<<<<<< HEAD
         queries: List["torch.Tensor"],
         responses: List["torch.Tensor"],
     ) -> List["torch.Tensor"]:
         r"""
         Computes scores using given reward model.
+=======
+        queries: list["torch.Tensor"],
+        responses: list["torch.Tensor"],
+    ) -> list["torch.Tensor"]:
+        r"""Compute scores using given reward model.
+>>>>>>> upstream/main
 
         Both inputs and outputs are put on CPU.
         """
@@ -394,8 +446,13 @@ class CustomPPOTrainer(PPOTrainer, Trainer):
             messages = self.tokenizer.batch_decode(token_ids, skip_special_tokens=False)
             return get_rewards_from_server(self.reward_model, messages)
 
+<<<<<<< HEAD
         batch: Dict[str, "torch.Tensor"] = self.prepare_model_inputs(queries, responses)
         unwrapped_model: "AutoModelForCausalLMWithValueHead" = self.accelerator.unwrap_model(self.model)
+=======
+        batch: dict[str, torch.Tensor] = self.prepare_model_inputs(queries, responses)
+        unwrapped_model: AutoModelForCausalLMWithValueHead = self.accelerator.unwrap_model(self.model)
+>>>>>>> upstream/main
 
         if self.finetuning_args.reward_model_type == "lora":
             replace_model(unwrapped_model, target="reward")
@@ -404,7 +461,11 @@ class CustomPPOTrainer(PPOTrainer, Trainer):
             reward_model = self.reward_model
 
         with unwrap_model_for_generation(reward_model, self.accelerator), self.amp_context:  # support bf16
+<<<<<<< HEAD
             values: "torch.Tensor" = reward_model(**batch, return_dict=True, use_cache=False)[-1]
+=======
+            values: torch.Tensor = reward_model(**batch, return_dict=True, use_cache=False)[-1]
+>>>>>>> upstream/main
 
         if self.finetuning_args.reward_model_type == "lora":
             replace_model(unwrapped_model, target="default")
@@ -419,12 +480,20 @@ class CustomPPOTrainer(PPOTrainer, Trainer):
         model: "AutoModelForCausalLMWithValueHead",
         queries: "torch.Tensor",
         responses: "torch.Tensor",
+<<<<<<< HEAD
         model_inputs: Dict[str, Any],
         return_logits: bool = False,
         response_masks: Optional["torch.Tensor"] = None,
     ) -> Tuple["torch.Tensor", Optional["torch.Tensor"], "torch.Tensor", "torch.Tensor"]:
         r"""
         Calculates model outputs in multiple batches.
+=======
+        model_inputs: dict[str, Any],
+        return_logits: bool = False,
+        response_masks: Optional["torch.Tensor"] = None,
+    ) -> tuple["torch.Tensor", Optional["torch.Tensor"], "torch.Tensor", "torch.Tensor"]:
+        r"""Calculate model outputs in multiple batches.
+>>>>>>> upstream/main
 
         Subclass and override to inject custom behavior.
         """
@@ -483,8 +552,12 @@ class CustomPPOTrainer(PPOTrainer, Trainer):
 
     @override
     def save_model(self, output_dir: Optional[str] = None) -> None:
+<<<<<<< HEAD
         r"""
         Saves model checkpoint.
+=======
+        r"""Save model checkpoint.
+>>>>>>> upstream/main
 
         Subclass and override to inject custom behavior.
         """
@@ -508,5 +581,9 @@ class CustomPPOTrainer(PPOTrainer, Trainer):
                 self.model.save_checkpoint(output_dir)
 
         elif self.args.should_save:
+<<<<<<< HEAD
             unwrapped_model: "AutoModelForCausalLMWithValueHead" = self.accelerator.unwrap_model(self.model)
+=======
+            unwrapped_model: AutoModelForCausalLMWithValueHead = self.accelerator.unwrap_model(self.model)
+>>>>>>> upstream/main
             self._save(output_dir, state_dict=unwrapped_model.state_dict())

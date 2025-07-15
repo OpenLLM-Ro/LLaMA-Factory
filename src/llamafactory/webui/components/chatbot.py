@@ -12,8 +12,14 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+<<<<<<< HEAD
 import json
 from typing import TYPE_CHECKING, Dict, Tuple
+=======
+import inspect
+import json
+from typing import TYPE_CHECKING
+>>>>>>> upstream/main
 
 from ...data import Role
 from ...extras.packages import is_gradio_available
@@ -31,9 +37,13 @@ if TYPE_CHECKING:
 
 
 def check_json_schema(text: str, lang: str) -> None:
+<<<<<<< HEAD
     r"""
     Checks if the json schema is valid.
     """
+=======
+    r"""Check if the json schema is valid."""
+>>>>>>> upstream/main
     try:
         tools = json.loads(text)
         if tools:
@@ -49,10 +59,24 @@ def check_json_schema(text: str, lang: str) -> None:
 
 def create_chat_box(
     engine: "Engine", visible: bool = False
+<<<<<<< HEAD
 ) -> Tuple["Component", "Component", Dict[str, "Component"]]:
     lang = engine.manager.get_elem_by_id("top.lang")
     with gr.Column(visible=visible) as chat_box:
         chatbot = gr.Chatbot(type="messages", show_copy_button=True)
+=======
+) -> tuple["Component", "Component", dict[str, "Component"]]:
+    lang = engine.manager.get_elem_by_id("top.lang")
+    with gr.Column(visible=visible) as chat_box:
+        kwargs = {}
+        if "show_copy_button" in inspect.signature(gr.Chatbot.__init__).parameters:
+            kwargs["show_copy_button"] = True
+
+        if "resizable" in inspect.signature(gr.Chatbot.__init__).parameters:
+            kwargs["resizable"] = True
+
+        chatbot = gr.Chatbot(type="messages", **kwargs)
+>>>>>>> upstream/main
         messages = gr.State([])
         with gr.Row():
             with gr.Column(scale=4):
@@ -81,6 +105,10 @@ def create_chat_box(
                 temperature = gr.Slider(minimum=0.01, maximum=1.5, value=0.95, step=0.01)
                 skip_special_tokens = gr.Checkbox(value=True)
                 escape_html = gr.Checkbox(value=True)
+<<<<<<< HEAD
+=======
+                enable_thinking = gr.Checkbox(value=True)
+>>>>>>> upstream/main
                 clear_btn = gr.Button()
 
     tools.input(check_json_schema, inputs=[tools, engine.manager.get_elem_by_id("top.lang")])
@@ -105,6 +133,10 @@ def create_chat_box(
             temperature,
             skip_special_tokens,
             escape_html,
+<<<<<<< HEAD
+=======
+            enable_thinking,
+>>>>>>> upstream/main
         ],
         [chatbot, messages],
     )
@@ -129,6 +161,10 @@ def create_chat_box(
             temperature=temperature,
             skip_special_tokens=skip_special_tokens,
             escape_html=escape_html,
+<<<<<<< HEAD
+=======
+            enable_thinking=enable_thinking,
+>>>>>>> upstream/main
             clear_btn=clear_btn,
         ),
     )

@@ -21,12 +21,20 @@ from llamafactory.train.tuner import export_model, run_exp
 
 DEMO_DATA = os.getenv("DEMO_DATA", "llamafactory/demo_data")
 
+<<<<<<< HEAD
 TINY_LLAMA = os.getenv("TINY_LLAMA", "llamafactory/tiny-random-Llama-3")
+=======
+TINY_LLAMA3 = os.getenv("TINY_LLAMA3", "llamafactory/tiny-random-Llama-3")
+>>>>>>> upstream/main
 
 TINY_LLAMA_ADAPTER = os.getenv("TINY_LLAMA_ADAPTER", "llamafactory/tiny-random-Llama-3-lora")
 
 TRAIN_ARGS = {
+<<<<<<< HEAD
     "model_name_or_path": TINY_LLAMA,
+=======
+    "model_name_or_path": TINY_LLAMA3,
+>>>>>>> upstream/main
     "do_train": True,
     "finetuning_type": "lora",
     "dataset_dir": "REMOTE:" + DEMO_DATA,
@@ -35,10 +43,18 @@ TRAIN_ARGS = {
     "overwrite_output_dir": True,
     "per_device_train_batch_size": 1,
     "max_steps": 1,
+<<<<<<< HEAD
 }
 
 INFER_ARGS = {
     "model_name_or_path": TINY_LLAMA,
+=======
+    "report_to": "none",
+}
+
+INFER_ARGS = {
+    "model_name_or_path": TINY_LLAMA3,
+>>>>>>> upstream/main
     "adapter_name_or_path": TINY_LLAMA_ADAPTER,
     "finetuning_type": "lora",
     "template": "llama3",

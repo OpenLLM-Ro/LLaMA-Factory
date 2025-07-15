@@ -1,4 +1,4 @@
-# Copyright 2024 Musab Gultekin and the LlamaFactory team.
+# Copyright 2025 Musab Gultekin and the LlamaFactory team.
 #
 # This code is based on the Musab Gultekin's functionary library.
 # https://github.com/MeetKai/functionary/blob/main/functionary/train/packing/monkey_patch_packing.py
@@ -37,18 +37,12 @@
 # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 # SOFTWARE.
 
-from typing import TYPE_CHECKING, Tuple
+from typing import TYPE_CHECKING
 
 import torch
 import torch.nn.functional as F
 
 from ...extras import logging
-from ...extras.misc import check_version
-from ...extras.packages import is_transformers_version_greater_than
-
-
-if is_transformers_version_greater_than("4.43.0"):
-    import transformers.modeling_flash_attention_utils
 
 
 if TYPE_CHECKING:
@@ -59,8 +53,7 @@ logger = logging.get_logger(__name__)
 
 
 def get_seqlens_in_batch(attention_mask: "torch.Tensor") -> "torch.Tensor":
-    r"""
-    Gets the sequnce lengths in the current batch.
+    r"""Get the sequnce lengths in the current batch.
 
     e.g.
     ```python
@@ -76,7 +69,7 @@ def get_seqlens_in_batch(attention_mask: "torch.Tensor") -> "torch.Tensor":
     bsz = attention_mask.size(0)
     dtype, device = attention_mask.dtype, attention_mask.device
     max_num = torch.max(attention_mask).item()
-    counts: "torch.Tensor" = torch.zeros((bsz, max_num), dtype=dtype, device=device)
+    counts: torch.Tensor = torch.zeros((bsz, max_num), dtype=dtype, device=device)
     for i in range(max_num):
         counts[:, i] = torch.sum(attention_mask == (i + 1), dim=-1)
 
@@ -85,9 +78,8 @@ def get_seqlens_in_batch(attention_mask: "torch.Tensor") -> "torch.Tensor":
     return seqlens
 
 
-def get_unpad_data(attention_mask: "torch.Tensor") -> Tuple["torch.Tensor", "torch.Tensor", int]:
-    r"""
-    Prepares the indices and seqlens for flash attn varlen function.
+def get_unpad_data(attention_mask: "torch.Tensor") -> tuple["torch.Tensor", "torch.Tensor", int]:
+    r"""Prepare the indices and seqlens for flash attn varlen function.
 
     Returns:
         indices: indices of non-masked tokens from the flattened sequence.
@@ -118,6 +110,7 @@ def configure_packing(model_args: "ModelArguments", is_trainable: bool) -> None:
     if not is_trainable or not model_args.block_diag_attn:
         return
 
-    check_version("transformers>=4.43.0")
+    import transformers.modeling_flash_attention_utils
+
     transformers.modeling_flash_attention_utils._get_unpad_data = get_unpad_data
     logger.info_rank0("Using block diagonal attention for sequence packing without cross-attention.")

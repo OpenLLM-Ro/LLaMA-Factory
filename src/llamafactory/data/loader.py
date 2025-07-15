@@ -13,17 +13,16 @@
 # limitations under the License.
 
 import os
-import sys
-from typing import TYPE_CHECKING, Dict, Literal, Optional, Sequence, Union
+from typing import TYPE_CHECKING, Literal, Optional, Union
 
 import numpy as np
-from datasets import load_dataset, load_from_disk
+from datasets import Dataset, load_dataset, load_from_disk
 
 from ..extras import logging
 from ..extras.constants import FILEEXT2TYPE
 from ..extras.misc import check_version, has_tokenized_data
 from .converter import align_dataset
-from .data_utils import get_dataset_module, merge_dataset, split_dataset
+from .data_utils import get_dataset_module, merge_dataset, read_cloud_json, split_dataset
 from .parser import get_dataset_list
 from .processor import (
     FeedbackDatasetProcessor,
@@ -55,9 +54,7 @@ def _load_single_dataset(
     data_args: "DataArguments",
     training_args: "Seq2SeqTrainingArguments",
 ) -> Union["Dataset", "IterableDataset"]:
-    r"""
-    Loads a single dataset and aligns it to the standard format.
-    """
+    r"""Load a single dataset and aligns it to the standard format."""
     logger.info_rank0(f"Loading dataset {dataset_attr}...")
     data_path, data_name, data_dir, data_files = None, None, None, None
     if dataset_attr.load_from in ["hf_hub", "ms_hub", "om_hub"]:
@@ -69,6 +66,9 @@ def _load_single_dataset(
         data_path = os.path.join(data_args.dataset_dir, dataset_attr.dataset_name)
         data_name = dataset_attr.subset
         data_dir = dataset_attr.folder
+
+    elif dataset_attr.load_from == "cloud_file":
+        data_path = dataset_attr.dataset_name
 
     elif dataset_attr.load_from == "file":
         data_files = []
@@ -91,7 +91,7 @@ def _load_single_dataset(
         raise NotImplementedError(f"Unknown load type: {dataset_attr.load_from}.")
 
     if dataset_attr.load_from == "ms_hub":
-        check_version("modelscope>=1.11.0", mandatory=True)
+        check_version("modelscope>=1.14.0", mandatory=True)
         from modelscope import MsDataset  # type: ignore
         from modelscope.utils.config_ds import MS_DATASETS_CACHE  # type: ignore
 
@@ -125,6 +125,8 @@ def _load_single_dataset(
             token=model_args.om_hub_token,
             streaming=data_args.streaming,
         )
+    elif dataset_attr.load_from == "cloud_file":
+        dataset = Dataset.from_list(read_cloud_json(data_path), split=dataset_attr.split)
     else:
         dataset = load_dataset(
             path=data_path,
@@ -134,10 +136,12 @@ def _load_single_dataset(
             split=dataset_attr.split,
             cache_dir=model_args.cache_dir,
             token=model_args.hf_hub_token,
-            streaming=data_args.streaming,
             num_proc=data_args.preprocessing_num_workers,
             trust_remote_code=model_args.trust_remote_code,
+            streaming=data_args.streaming and dataset_attr.load_from != "file",
         )
+        if data_args.streaming and dataset_attr.load_from == "file":
+            dataset = dataset.to_iterable_dataset(num_shards=training_args.dataloader_num_workers)
 
     if dataset_attr.num_samples is not None and not data_args.streaming:
         target_num = dataset_attr.num_samples
@@ -159,16 +163,14 @@ def _load_single_dataset(
 
 
 def _get_merged_dataset(
-    dataset_names: Optional[Sequence[str]],
+    dataset_names: Optional[list[str]],
     model_args: "ModelArguments",
     data_args: "DataArguments",
     training_args: "Seq2SeqTrainingArguments",
     stage: Literal["pt", "sft", "rm", "ppo", "kto"],
-    merge: bool = True,
-) -> Optional[Union["Dataset", "IterableDataset", Dict[str, "Dataset"]]]:
-    r"""
-    Returns the merged datasets in the standard format.
-    """
+    return_dict: bool = False,
+) -> Optional[Union["Dataset", "IterableDataset", dict[str, "Dataset"]]]:
+    r"""Return the merged datasets in the standard format."""
     if dataset_names is None:
         return None
 
@@ -179,10 +181,10 @@ def _get_merged_dataset(
 
         datasets[dataset_name] = _load_single_dataset(dataset_attr, model_args, data_args, training_args)
 
-    if merge:
-        return merge_dataset(list(datasets.values()), data_args, seed=training_args.seed)
-    else:
+    if return_dict:
         return datasets
+    else:
+        return merge_dataset(list(datasets.values()), data_args, seed=training_args.seed)
 
 
 def _get_dataset_processor(
@@ -193,9 +195,7 @@ def _get_dataset_processor(
     processor: Optional["ProcessorMixin"],
     do_generate: bool = False,
 ) -> "DatasetProcessor":
-    r"""
-    Returns the corresponding dataset processor.
-    """
+    r"""Return the corresponding dataset processor."""
     if stage == "pt":
         dataset_processor_class = PretrainDatasetProcessor
     elif stage == "sft" and not do_generate:
@@ -237,9 +237,7 @@ def _get_preprocessed_dataset(
     processor: Optional["ProcessorMixin"] = None,
     is_eval: bool = False,
 ) -> Optional[Union["Dataset", "IterableDataset"]]:
-    r"""
-    Preprocesses the dataset, including format checking and tokenization.
-    """
+    r"""Preprocesses the dataset, including format checking and tokenization."""
     if dataset is None:
         return None
 
@@ -285,9 +283,7 @@ def get_dataset(
     tokenizer: "PreTrainedTokenizer",
     processor: Optional["ProcessorMixin"] = None,
 ) -> "DatasetModule":
-    r"""
-    Gets the train dataset and optionally gets the evaluation dataset.
-    """
+    r"""Get the train dataset and optionally gets the evaluation dataset."""
     # Load tokenized dataset if path exists
     if data_args.tokenized_path is not None:
         if has_tokenized_data(data_args.tokenized_path):
@@ -304,13 +300,18 @@ def get_dataset(
             raise ValueError("Turn off `streaming` when saving dataset to disk.")
 
     # Load and preprocess dataset
-    with training_args.main_process_first(desc="load dataset"):
+    with training_args.main_process_first(desc="load dataset", local=(not data_args.data_shared_file_system)):
         dataset = _get_merged_dataset(data_args.dataset, model_args, data_args, training_args, stage)
         eval_dataset = _get_merged_dataset(
-            data_args.eval_dataset, model_args, data_args, training_args, stage, merge=training_args.do_predict
+            data_args.eval_dataset,
+            model_args,
+            data_args,
+            training_args,
+            stage,
+            return_dict=data_args.eval_on_each_dataset,
         )
 
-    with training_args.main_process_first(desc="pre-process dataset"):
+    with training_args.main_process_first(desc="pre-process dataset", local=(not data_args.data_shared_file_system)):
         dataset = _get_preprocessed_dataset(
             dataset, data_args, training_args, stage, template, tokenizer, processor, is_eval=False
         )
@@ -325,12 +326,10 @@ def get_dataset(
             )
 
         dataset_dict = split_dataset(dataset, eval_dataset, data_args, seed=training_args.seed)
-        if data_args.tokenized_path is not None:  # save tokenized dataset to disk and exit
+        if data_args.tokenized_path is not None:  # save tokenized dataset to disk
             if training_args.should_save:
                 dataset_dict.save_to_disk(data_args.tokenized_path)
                 logger.info_rank0(f"Tokenized dataset is saved at {data_args.tokenized_path}.")
-                logger.info_rank0(f"Please restart the training with `tokenized_path: {data_args.tokenized_path}`.")
-
-            sys.exit(0)
+                logger.info_rank0(f"Please launch the training with `tokenized_path: {data_args.tokenized_path}`.")
 
         return get_dataset_module(dataset_dict)

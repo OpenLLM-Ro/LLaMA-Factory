@@ -1,4 +1,8 @@
+<<<<<<< HEAD
 # Copyright 2024 HuggingFace Inc. and the LlamaFactory team.
+=======
+# Copyright 2025 HuggingFace Inc. and the LlamaFactory team.
+>>>>>>> upstream/main
 #
 # This code is inspired by the HuggingFace's TRL library.
 # https://github.com/huggingface/trl/blob/v0.8.0/trl/trainer/kto_trainer.py
@@ -19,7 +23,11 @@ import warnings
 from collections import defaultdict
 from contextlib import nullcontext
 from types import MethodType
+<<<<<<< HEAD
 from typing import TYPE_CHECKING, Dict, List, Literal, Optional, Tuple, Union
+=======
+from typing import TYPE_CHECKING, Literal, Optional, Union
+>>>>>>> upstream/main
 
 import torch
 from transformers import Trainer
@@ -34,7 +42,10 @@ from ..trainer_utils import create_custom_optimizer, create_custom_scheduler, ge
 
 
 if TYPE_CHECKING:
+<<<<<<< HEAD
     import torch.utils.data
+=======
+>>>>>>> upstream/main
     from transformers import PreTrainedModel, ProcessorMixin
 
     from ...hparams import FinetuningArguments
@@ -119,6 +130,7 @@ class CustomKTOTrainer(KTOTrainer):
         return super().create_scheduler(num_training_steps, optimizer)
 
     @override
+<<<<<<< HEAD
     def _get_train_sampler(self) -> Optional["torch.utils.data.Sampler"]:
         r"""
         Replaces the sequential sampler of KTO Trainer created by trl with the random sampler.
@@ -142,6 +154,25 @@ class CustomKTOTrainer(KTOTrainer):
         r"""
         Runs forward pass and computes the log probabilities.
         """
+=======
+    def _get_train_sampler(self, *args, **kwargs) -> Optional["torch.utils.data.Sampler"]:
+        r"""Replace the sequential sampler of KTO Trainer created by trl with the random sampler."""
+        if self.finetuning_args.disable_shuffling:
+            return torch.utils.data.SequentialSampler(self.train_dataset)
+
+        return Trainer._get_train_sampler(self, *args, **kwargs)
+
+    @override
+    def get_batch_samples(self, *args, **kwargs):
+        r"""Replace the method of KTO Trainer with the one of the standard Trainer."""
+        return Trainer.get_batch_samples(self, *args, **kwargs)
+
+    @override
+    def forward(
+        self, model: "PreTrainedModel", batch: dict[str, "torch.Tensor"], prefix: Literal["", "kl_"] = ""
+    ) -> tuple["torch.Tensor", "torch.Tensor", "torch.Tensor"]:
+        r"""Run forward pass and computes the log probabilities."""
+>>>>>>> upstream/main
         batch = nested_detach(batch, clone=True)  # avoid error
         model_inputs = {
             "input_ids": batch[f"{prefix}input_ids"],
@@ -153,6 +184,12 @@ class CustomKTOTrainer(KTOTrainer):
         if "pixel_values" in batch:
             model_inputs["pixel_values"] = batch["pixel_values"]
 
+<<<<<<< HEAD
+=======
+        if "image_sizes" in batch:
+            model_inputs["image_sizes"] = batch["image_sizes"]
+
+>>>>>>> upstream/main
         if "image_grid_thw" in batch:
             model_inputs["image_grid_thw"] = batch["image_grid_thw"]
 
@@ -171,8 +208,13 @@ class CustomKTOTrainer(KTOTrainer):
 
     @override
     def concatenated_forward(
+<<<<<<< HEAD
         self, model: "PreTrainedModel", batch: Dict[str, "torch.Tensor"]
     ) -> Tuple["torch.Tensor", "torch.Tensor", "torch.Tensor", "torch.Tensor", "torch.Tensor", "torch.Tensor"]:
+=======
+        self, model: "PreTrainedModel", batch: dict[str, "torch.Tensor"]
+    ) -> tuple["torch.Tensor", "torch.Tensor", "torch.Tensor", "torch.Tensor", "torch.Tensor", "torch.Tensor"]:
+>>>>>>> upstream/main
         target_logits, target_logps, target_logps_avg = self.forward(model, batch)
         with torch.no_grad():
             _, kl_logps, _ = self.forward(model, batch, prefix="kl_")
@@ -189,11 +231,17 @@ class CustomKTOTrainer(KTOTrainer):
 
     @override
     def compute_reference_log_probs(
+<<<<<<< HEAD
         self, model: "PreTrainedModel", batch: Dict[str, "torch.Tensor"]
     ) -> Tuple["torch.Tensor", "torch.Tensor", "torch.Tensor"]:
         r"""
         Computes log probabilities of the reference model.
         """
+=======
+        self, model: "PreTrainedModel", batch: dict[str, "torch.Tensor"]
+    ) -> tuple["torch.Tensor", "torch.Tensor", "torch.Tensor"]:
+        r"""Compute log probabilities of the reference model."""
+>>>>>>> upstream/main
         if self.ref_model is None:
             ref_model = model
             ref_context = self.accelerator.unwrap_model(model).disable_adapter()
@@ -212,11 +260,17 @@ class CustomKTOTrainer(KTOTrainer):
     def get_batch_loss_metrics(
         self,
         model: "PreTrainedModel",
+<<<<<<< HEAD
         batch: Dict[str, "torch.Tensor"],
     ) -> Tuple["torch.Tensor", Dict[str, "torch.Tensor"]]:
         r"""
         Computes the DPO loss and other metrics for the given batch of inputs for train or test.
         """
+=======
+        batch: dict[str, "torch.Tensor"],
+    ) -> tuple["torch.Tensor", dict[str, "torch.Tensor"]]:
+        r"""Compute the DPO loss and other metrics for the given batch of inputs for train or test."""
+>>>>>>> upstream/main
         metrics = {}
         (
             policy_chosen_logps,
@@ -262,6 +316,7 @@ class CustomKTOTrainer(KTOTrainer):
 
     @override
     def compute_loss(
+<<<<<<< HEAD
         self, model: "PreTrainedModel", inputs: Dict[str, "torch.Tensor"], return_outputs: bool = False, **kwargs
     ) -> Union["torch.Tensor", Tuple["torch.Tensor", List["torch.Tensor"]]]:
         r"""
@@ -274,6 +329,16 @@ class CustomKTOTrainer(KTOTrainer):
         r"""
         Log `logs` on the various objects watching training, including stored metrics.
         """
+=======
+        self, model: "PreTrainedModel", inputs: dict[str, "torch.Tensor"], return_outputs: bool = False, **kwargs
+    ) -> Union["torch.Tensor", tuple["torch.Tensor", list["torch.Tensor"]]]:
+        r"""Subclass and override to accept extra kwargs."""
+        return super().compute_loss(model, inputs, return_outputs)
+
+    @override
+    def log(self, logs: dict[str, float], *args, **kwargs) -> None:
+        r"""Log `logs` on the various objects watching training, including stored metrics."""
+>>>>>>> upstream/main
         # logs either has "loss" or "eval_loss"
         train_eval = "train" if "loss" in logs else "eval"
         prefix = "eval_" if train_eval == "eval" else ""
@@ -291,7 +356,11 @@ class CustomKTOTrainer(KTOTrainer):
 
         metric_list = torch.tensor(metric_list, dtype=torch.float).to(self.accelerator.device)
         metric_list = self.accelerator.reduce(metric_list, "sum").tolist()
+<<<<<<< HEAD
         metric_dict: Dict[str, float] = dict(zip(key_list, metric_list))
+=======
+        metric_dict: dict[str, float] = dict(zip(key_list, metric_list))
+>>>>>>> upstream/main
         for split in ["chosen", "rejected"]:  # accumulate average metrics from sums and lengths
             if f"count/{split}" in metric_dict:
                 for key in ("rewards", "logps", "logits"):

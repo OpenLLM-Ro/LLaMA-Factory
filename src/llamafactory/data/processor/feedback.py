@@ -13,7 +13,7 @@
 # limitations under the License.
 
 from collections import defaultdict
-from typing import TYPE_CHECKING, Any, Dict, List, Optional, Sequence, Tuple
+from typing import TYPE_CHECKING, Any, Optional
 
 from ...extras import logging
 from ...extras.constants import IGNORE_INDEX
@@ -30,15 +30,15 @@ logger = logging.get_logger(__name__)
 class FeedbackDatasetProcessor(DatasetProcessor):
     def _encode_data_example(
         self,
-        prompt: Sequence[Dict[str, str]],
-        response: Sequence[Dict[str, str]],
-        kl_response: Sequence[Dict[str, str]],
+        prompt: list[dict[str, str]],
+        response: list[dict[str, str]],
+        kl_response: list[dict[str, str]],
         system: Optional[str],
         tools: Optional[str],
-        images: Sequence["ImageInput"],
-        videos: Sequence["VideoInput"],
-        audios: Sequence["AudioInput"],
-    ) -> Tuple[List[int], List[int], List[int], List[int], bool]:
+        images: list["ImageInput"],
+        videos: list["VideoInput"],
+        audios: list["AudioInput"],
+    ) -> tuple[list[int], list[int], list[int], list[int], bool]:
         if response[0]["content"]:  # desired example
             kto_tag = True
             messages = prompt + [response[0]]
@@ -82,9 +82,9 @@ class FeedbackDatasetProcessor(DatasetProcessor):
         kl_labels = [IGNORE_INDEX] * kl_source_len + kl_response_ids
         return input_ids, labels, kl_input_ids, kl_labels, kto_tag
 
-    def preprocess_dataset(self, examples: Dict[str, List[Any]]) -> Dict[str, List[Any]]:
-        # create unrelated input-output pairs for estimating the KL term by flipping the matched pairs
-        kl_response = examples["_response"][::-1]
+    def preprocess_dataset(self, examples: dict[str, list[Any]]) -> dict[str, list[Any]]:
+        # Creates mismatched pairs of prompts and completions for the KL dataset by adding a +1 offset to the order of completions.
+        kl_response = [examples["_response"][-1]] + examples["_response"][:-1]
         model_inputs = defaultdict(list)
         for i in range(len(examples["_prompt"])):
             if len(examples["_prompt"][i]) % 2 != 1 or len(examples["_response"][i]) < 2:
@@ -121,7 +121,7 @@ class FeedbackDatasetProcessor(DatasetProcessor):
 
         return model_inputs
 
-    def print_data_example(self, example: Dict[str, List[int]]) -> None:
+    def print_data_example(self, example: dict[str, list[int]]) -> None:
         valid_labels = list(filter(lambda x: x != IGNORE_INDEX, example["labels"]))
         print("input_ids:\n{}".format(example["input_ids"]))
         print("inputs:\n{}".format(self.tokenizer.decode(example["input_ids"], skip_special_tokens=False)))

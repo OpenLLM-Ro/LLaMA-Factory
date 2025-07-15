@@ -1,4 +1,8 @@
+<<<<<<< HEAD
 # Copyright 2024 HuggingFace Inc. and the LlamaFactory team.
+=======
+# Copyright 2025 HuggingFace Inc. and the LlamaFactory team.
+>>>>>>> upstream/main
 #
 # This code is inspired by the HuggingFace's transformers library.
 # https://github.com/huggingface/transformers/blob/v4.40.0/src/transformers/trainer.py
@@ -18,7 +22,11 @@
 import json
 import os
 from types import MethodType
+<<<<<<< HEAD
 from typing import TYPE_CHECKING, Dict, List, Optional, Tuple, Union
+=======
+from typing import TYPE_CHECKING, Optional, Union
+>>>>>>> upstream/main
 
 import torch
 from transformers import Trainer
@@ -41,9 +49,13 @@ logger = logging.get_logger(__name__)
 
 
 class PairwiseTrainer(Trainer):
+<<<<<<< HEAD
     r"""
     Inherits Trainer to compute pairwise loss.
     """
+=======
+    r"""Inherits Trainer to compute pairwise loss."""
+>>>>>>> upstream/main
 
     def __init__(
         self, finetuning_args: "FinetuningArguments", processor: Optional["ProcessorMixin"], **kwargs
@@ -80,6 +92,7 @@ class PairwiseTrainer(Trainer):
         return super().create_scheduler(num_training_steps, optimizer)
 
     @override
+<<<<<<< HEAD
     def _get_train_sampler(self) -> Optional["torch.utils.data.Sampler"]:
         if self.finetuning_args.disable_shuffling:
             return torch.utils.data.SequentialSampler(self.train_dataset)
@@ -92,6 +105,19 @@ class PairwiseTrainer(Trainer):
     ) -> Union["torch.Tensor", Tuple["torch.Tensor", List["torch.Tensor"]]]:
         r"""
         Computes pairwise loss. The first n examples are chosen and the last n examples are rejected.
+=======
+    def _get_train_sampler(self, *args, **kwargs) -> Optional["torch.utils.data.Sampler"]:
+        if self.finetuning_args.disable_shuffling:
+            return torch.utils.data.SequentialSampler(self.train_dataset)
+
+        return super()._get_train_sampler(*args, **kwargs)
+
+    @override
+    def compute_loss(
+        self, model: "PreTrainedModel", inputs: dict[str, "torch.Tensor"], return_outputs: bool = False, **kwargs
+    ) -> Union["torch.Tensor", tuple["torch.Tensor", list["torch.Tensor"]]]:
+        r"""Compute pairwise loss. The first n examples are chosen and the last n examples are rejected.
+>>>>>>> upstream/main
 
         Subclass and override to inject custom behavior.
 
@@ -113,8 +139,12 @@ class PairwiseTrainer(Trainer):
             return loss
 
     def save_predictions(self, predict_results: "PredictionOutput") -> None:
+<<<<<<< HEAD
         r"""
         Saves model predictions to `output_dir`.
+=======
+        r"""Save model predictions to `output_dir`.
+>>>>>>> upstream/main
 
         A custom behavior that not contained in Seq2SeqTrainer.
         """
@@ -126,7 +156,11 @@ class PairwiseTrainer(Trainer):
         chosen_scores, rejected_scores = predict_results.predictions
 
         with open(output_prediction_file, "w", encoding="utf-8") as writer:
+<<<<<<< HEAD
             res: List[str] = []
+=======
+            res: list[str] = []
+>>>>>>> upstream/main
             for c_score, r_score in zip(chosen_scores, rejected_scores):
                 res.append(json.dumps({"chosen": round(float(c_score), 2), "rejected": round(float(r_score), 2)}))
 
