@@ -24,9 +24,6 @@ TINY_LLAMA3 = os.getenv("TINY_LLAMA3", "llamafactory/tiny-random-Llama-3")
 TINY_LLAMA_VALUEHEAD = os.getenv("TINY_LLAMA_VALUEHEAD", "llamafactory/tiny-random-Llama-3-valuehead")
 
 INFER_ARGS = {
-<<<<<<< HEAD
-    "model_name_or_path": TINY_LLAMA,
-=======
     "model_name_or_path": TINY_LLAMA3,
 }
 
@@ -37,11 +34,7 @@ def fix_valuehead_cpu_loading():
 
 def test_base():
     model = load_infer_model(**INFER_ARGS)
-<<<<<<< HEAD
-    ref_model = load_reference_model(TINY_LLAMA)
-=======
     ref_model = load_reference_model(TINY_LLAMA3)
->>>>>>> upstream/main
     compare_model(model, ref_model)
 
 
