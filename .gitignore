@@ -225,3 +225,4 @@ exec_big_label1_clean.json
 /testB.*
 /hora.jpeg
 /setup.py
+/vllm/
