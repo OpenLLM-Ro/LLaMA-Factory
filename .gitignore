@@ -192,38 +192,20 @@ data/ro_vlm_*.json
 data/ro_vlm_*_enimg
 data/hot_*.json
 data/lw_hot_*/
+data/lw
+data/ro_pretrain
+data/ro_vlm_tokenized
+data/ro_sft_bench.json
 exec_big_label1_clean.json
 
 # OpenLLM-Ro: local working scripts & artifacts at repo root (data prep / verification / inference / configs — local only, never published)
 /Custom*.py
+/misc/
 /aggregate_folds.py
-/build_*.py
-/check_*.py
-/collect_*.py
-/convert.py
-/dataset_stats.py
-/download_*.py
-/dump_*.py
-/filter_*.py
-/fix_image_path*.py
-/inference*.py
 /llm_*.py
-/merge_lora_manual.py
-/test_*.py
-/upload_*.py
-/validate_*.py
-/verify_*.py
 /config_*.yaml
 !/config_vlm_sft_example.yaml
-/repull_corrupt.sh
 /run.sh
-/en_integrity_corrupt.txt
-/pixmo_count_en_missing.txt
-/pixmo_cap_corrupt_manifest.json
-/peft_*.out
-/testA.*
-/testB.*
-/hora.jpeg
 /setup.py
 /vllm/
 
