@@ -10,48 +10,27 @@ Official code used for training Romanian LLMs as proposed in [Masala et al. 2024
 - [ro_sft_orca](https://huggingface.co/datasets/OpenLLM-Ro/ro_sft_orca)
 - [ro_sft_camel](https://huggingface.co/datasets/OpenLLM-Ro/ro_sft_camel)
 
+> [!IMPORTANT]
+> **Reproducing the paper (text-only).** This `main` branch has since been updated to a newer LLaMA-Factory base and **extended with vision-language (VLM) training** (LLaVA-NeXT, Gemma3, Qwen3-VL) alongside the original text-only work. For the **exact code used in [Masala et al. 2024]**, check out the frozen tag:
+> ```bash
+> git checkout v1.0-text
+> ```
+
+### Datasets
+
+Beyond the SFT datasets listed above, the full Romanian suite — **text** (continued pretraining, SFT, DPO, and benchmarks such as `ro_laroseda` / `ro_sts` / `ro_xquad` / `ro_wmt`) and **vision-language** (`ro_sft_cosyn`, `ro_sft_flickr30k_*`, `ro_sft_pixmo_*`, `ro_sft_llava_mix`, `ro_sft_finepdfs`, …, plus `*_enimg` embedded-image variants) — is registered in [`data/dataset_info.json`](data/dataset_info.json). Most datasets are published at [huggingface.co/OpenLLM-Ro](https://huggingface.co/OpenLLM-Ro).
+
+> [!WARNING]
+> **Local-data disclaimer.** The entries in [`data/dataset_info.json`](data/dataset_info.json) and the loader scripts under `data/` in this repo are wired to read from **local files/folders on disk**, *not* directly from the Hugging Face Hub. To train, download the relevant datasets (e.g. from [OpenLLM-Ro](https://huggingface.co/OpenLLM-Ro)) to local paths and adjust the entries in `dataset_info.json` to point at your copies. Large data files, tokenized caches, and checkpoints (`data/ro_vlm_*.json`, `data/lw/`, `saves/`, …) are **gitignored** and intentionally not shipped here.
+
 
 ![# LLaMA Factory](assets/logo.png)
 
 
-
-- [Requirement](#requirement)
 - [Getting Started](#getting-started)
 
 
-## Requirement
 
-| Mandatory    | Minimum | Recommend |
-| ------------ | ------- | --------- |
-| python       | 3.9     | 3.10      |
-| torch        | 2.0.0   | 2.6.0     |
-| torchvision  | 0.15.0  | 0.21.0    |
-| transformers | 4.49.0  | 4.50.0    |
-| datasets     | 2.16.0  | 3.2.0     |
-| accelerate   | 0.34.0  | 1.2.1     |
-| peft         | 0.14.0  | 0.15.1    |
-| trl          | 0.8.6   | 0.9.6     |
-
-| Optional     | Minimum | Recommend |
-| ------------ | ------- | --------- |
-| CUDA         | 11.6    | 12.2      |
-| deepspeed    | 0.10.0  | 0.16.4    |
-| bitsandbytes | 0.39.0  | 0.43.1    |
-| vllm         | 0.4.3   | 0.8.2     |
-| flash-attn   | 2.5.6   | 2.7.2     |
-
-### Hardware Requirement
-
-\* *estimated*
-
-| Method                          | Bits |   7B  |  14B  |  30B  |   70B  |   `x`B  |
-| ------------------------------- | ---- | ----- | ----- | ----- | ------ | ------- |
-| Full (`bf16` or `fp16`)         |  32  | 120GB | 240GB | 600GB | 1200GB | `18x`GB |
-| Full (`pure_bf16`)              |  16  |  60GB | 120GB | 300GB |  600GB |  `8x`GB |
-| Freeze/LoRA/GaLore/APOLLO/BAdam |  16  |  16GB |  32GB |  64GB |  160GB |  `2x`GB |
-| QLoRA                           |   8  |  10GB |  20GB |  40GB |   80GB |   `x`GB |
-| QLoRA                           |   4  |   6GB |  12GB |  24GB |   48GB | `x/2`GB |
-| QLoRA                           |   2  |   4GB |   8GB |  16GB |   24GB | `x/4`GB |
 
 ## Getting Started
 
@@ -71,12 +50,6 @@ Extra dependencies available: torch, torch-npu, metrics, deepspeed, liger-kernel
 > [!TIP]
 > Use `pip install --no-deps -e .` to resolve package conflicts.
 
-### Data Preparation
-
-Please refer to [data/README.md](data/README.md) for checking the details about the format of dataset files. You can either use datasets on HuggingFace / ModelScope / Modelers hub or load the dataset in local disk.
-
-> [!NOTE]
-> Please update `data/dataset_info.json` to use your custom dataset.
 
 ### Quickstart
 
@@ -93,45 +66,36 @@ See [examples/README.md](examples/README.md) for advanced usage (including distr
 > [!TIP]
 > Use `llamafactory-cli help` to show help information.
 
-### Use W&B Logger
-
-To use [Weights & Biases](https://wandb.ai) for logging experimental results, you need to add the following arguments to yaml files.
-
-```yaml
-report_to: wandb
-run_name: test_run # optional
-```
-
-Set `WANDB_API_KEY` to [your key](https://wandb.ai/authorize) when launching training tasks to log in with your W&B account.
-
-### Use SwanLab Logger
-
-To use [SwanLab](https://github.com/SwanHubX/SwanLab) for logging experimental results, you need to add the following arguments to yaml files.
-
-```yaml
-use_swanlab: true
-swanlab_run_name: test_run # optional
-```
-
-When launching training tasks, you can log in to SwanLab in three ways:
-
-1. Add `swanlab_api_key=<your_api_key>` to the yaml file, and set it to your [API key](https://swanlab.cn/settings).
-2. Set the environment variable `SWANLAB_API_KEY` to your [API key](https://swanlab.cn/settings).
-3. Use the `swanlab login` command to complete the login.
-
 
 ## Citation
 
 
 ```bibtex
-@misc{masala2024vorbecstiromanecsterecipetrain,
-      title={"Vorbe\c{s}ti Rom\^ane\c{s}te?" A Recipe to Train Powerful Romanian LLMs with English Instructions}, 
-      author={Mihai Masala and Denis C. Ilie-Ablachim and Alexandru Dima and Dragos Corlatescu and Miruna Zavelca and Ovio Olaru and Simina Terian and Andrei Terian and Marius Leordeanu and Horia Velicu and Marius Popescu and Mihai Dascalu and Traian Rebedea},
-      year={2024},
-      eprint={2406.18266},
+@inproceedings{masala-etal-2024-vorbesti,
+    title = "``Vorbe\c{s}ti Rom{\^a}ne\c{s}te?'' A Recipe to Train Powerful {R}omanian {LLM}s with {E}nglish Instructions",
+    author = "Masala, Mihai and Ilie-Ablachim, Denis and Dima, Alexandru and Corlatescu, Dragos Georgian and Zavelca, Miruna-Andreea and Olaru, Ovio and Terian, Simina-Maria and Terian, Andrei and Leordeanu, Marius and Velicu, Horia and Popescu, Marius and Dascalu, Mihai and Rebedea, Traian",
+    editor = "Al-Onaizan, Yaser and Bansal, Mohit and Chen, Yun-Nung",
+    booktitle = "Findings of the Association for Computational Linguistics: EMNLP 2024",
+    month = nov,
+    year = "2024",
+    address = "Miami, Florida, USA",
+    publisher = "Association for Computational Linguistics",
+    url = "https://aclanthology.org/2024.findings-emnlp.681/",
+    doi = "10.18653/v1/2024.findings-emnlp.681",
+    pages = "11632--11647"
+}
+
+```
+
+```bibtext
+@misc{masala2026intelegi,
+      title={``\^{I}n\c{t}elegi Rom\^{a}ne\c{s}te?'' A Recipe for Romanian Vision-Language Models},
+      author={Mihai Masala and Marius Leordeanu and Mihai Dascalu and Traian Rebedea},
+      year={2026},
+      eprint={2605.31401},
       archivePrefix={arXiv},
       primaryClass={cs.CL},
-      url={https://arxiv.org/abs/2406.18266}, 
+      url={https://arxiv.org/abs/2605.31401},
 }
 ```
 
