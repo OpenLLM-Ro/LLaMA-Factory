@@ -226,3 +226,12 @@ exec_big_label1_clean.json
 /hora.jpeg
 /setup.py
 /vllm/
+
+# OpenLLM-Ro: local experiment outputs (COMET / GSM8K / cultural evals, extracted data, trainer outputs) — local only
+/crd/
+/grads/
+/octa/
+/rocult/
+/hot_lw/
+/tmp_trainer/
+/trainer_output/
