@@ -16,9 +16,25 @@ Official code used for training Romanian LLMs as proposed in [Masala et al. 2024
 > git checkout v1.0-text
 > ```
 
-### Datasets
+### Vision-language datasets
 
-Beyond the SFT datasets listed above, the full Romanian suite — **text** (continued pretraining, SFT, DPO, and benchmarks such as `ro_laroseda` / `ro_sts` / `ro_xquad` / `ro_wmt`) and **vision-language** (`ro_sft_cosyn`, `ro_sft_flickr30k_*`, `ro_sft_pixmo_*`, `ro_sft_llava_mix`, `ro_sft_finepdfs`, …, plus `*_enimg` embedded-image variants) — is registered in [`data/dataset_info.json`](data/dataset_info.json). Most datasets are published at [huggingface.co/OpenLLM-Ro](https://huggingface.co/OpenLLM-Ro).
+This repo also adds a suite of Romanian **vision-language** SFT datasets:
+
+- [ro_sft_cosyn](https://huggingface.co/datasets/OpenLLM-Ro/ro_sft_cosyn)
+- [ro_sft_finepdfs](https://huggingface.co/datasets/OpenLLM-Ro/ro_sft_finepdfs)
+- [ro_sft_flickr30k_cap](https://huggingface.co/datasets/OpenLLM-Ro/ro_sft_flickr30k_cap)
+- [ro_sft_flickr30k_qa](https://huggingface.co/datasets/OpenLLM-Ro/ro_sft_flickr30k_qa)
+- [ro_sft_laion](https://huggingface.co/datasets/OpenLLM-Ro/ro_sft_laion)
+- [ro_sft_llava_mix](https://huggingface.co/datasets/OpenLLM-Ro/ro_sft_llava_mix)
+- [ro_sft_pixmo_aa](https://huggingface.co/datasets/OpenLLM-Ro/ro_sft_pixmo_aa)
+- [ro_sft_pixmo_cap](https://huggingface.co/datasets/OpenLLM-Ro/ro_sft_pixmo_cap)
+- [ro_sft_pixmo_cap_qa](https://huggingface.co/datasets/OpenLLM-Ro/ro_sft_pixmo_cap_qa)
+- [ro_sft_pixmo_count](https://huggingface.co/datasets/OpenLLM-Ro/ro_sft_pixmo_count)
+- [ro_sft_pixmo_points](https://huggingface.co/datasets/OpenLLM-Ro/ro_sft_pixmo_points)
+
+Each Hugging Face dataset above ships **both** the **raw data** (which you can process locally with the scripts in this repo) and the **already-processed data**, ready to be fed directly to the model.
+
+The complete set of registered datasets — including Romanian continued-pretraining, DPO, and text benchmarks (`ro_laroseda`, `ro_sts`, `ro_xquad`, `ro_wmt`) — is listed in [`data/dataset_info.json`](data/dataset_info.json).
 
 > [!WARNING]
 > **Local-data disclaimer.** The entries in [`data/dataset_info.json`](data/dataset_info.json) and the loader scripts under `data/` in this repo are wired to read from **local files/folders on disk**, *not* directly from the Hugging Face Hub. To train, download the relevant datasets (e.g. from [OpenLLM-Ro](https://huggingface.co/OpenLLM-Ro)) to local paths and adjust the entries in `dataset_info.json` to point at your copies. Large data files, tokenized caches, and checkpoints (`data/ro_vlm_*.json`, `data/lw/`, `saves/`, …) are **gitignored** and intentionally not shipped here.
@@ -87,7 +103,7 @@ See [examples/README.md](examples/README.md) for advanced usage (including distr
 
 ```
 
-```bibtext
+```bibtex
 @misc{masala2026intelegi,
       title={``\^{I}n\c{t}elegi Rom\^{a}ne\c{s}te?'' A Recipe for Romanian Vision-Language Models},
       author={Mihai Masala and Marius Leordeanu and Mihai Dascalu and Traian Rebedea},
