@@ -15,33 +15,36 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-import os
-import platform
 
-import accelerate
-import datasets
-import peft
-import torch
-import transformers
-import trl
-from transformers.utils import is_torch_cuda_available, is_torch_npu_available
+from collections import OrderedDict
 
 
-VERSION = "0.9.4.dev0"
+VERSION = "0.9.5.dev0"
 
 
 def print_env() -> None:
-    info = {
-        "`llamafactory` version": VERSION,
-        "Platform": platform.platform(),
-        "Python version": platform.python_version(),
-        "PyTorch version": torch.__version__,
-        "Transformers version": transformers.__version__,
-        "Datasets version": datasets.__version__,
-        "Accelerate version": accelerate.__version__,
-        "PEFT version": peft.__version__,
-        "TRL version": trl.__version__,
-    }
+    import os
+    import platform
+
+    import accelerate
+    import datasets
+    import peft
+    import torch
+    import transformers
+    from transformers.utils import is_torch_cuda_available, is_torch_npu_available
+
+    info = OrderedDict(
+        {
+            "`llamafactory` version": VERSION,
+            "Platform": platform.platform(),
+            "Python version": platform.python_version(),
+            "PyTorch version": torch.__version__,
+            "Transformers version": transformers.__version__,
+            "Datasets version": datasets.__version__,
+            "Accelerate version": accelerate.__version__,
+            "PEFT version": peft.__version__,
+        }
+    )
 
     if is_torch_cuda_available():
         info["PyTorch version"] += " (GPU)"
@@ -53,6 +56,13 @@ def print_env() -> None:
         info["PyTorch version"] += " (NPU)"
         info["NPU type"] = torch.npu.get_device_name()
         info["CANN version"] = torch.version.cann
+
+    try:
+        import trl  # type: ignore
+
+        info["TRL version"] = trl.__version__
+    except Exception:
+        pass
 
     try:
         import deepspeed  # type: ignore

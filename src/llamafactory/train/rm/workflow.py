@@ -65,7 +65,7 @@ def run_rm(
         train_result = trainer.train(resume_from_checkpoint=training_args.resume_from_checkpoint)
         trainer.save_model()
         if training_args.should_save:
-            fix_valuehead_checkpoint(model, training_args.output_dir, training_args.save_safetensors)
+            fix_valuehead_checkpoint(model, training_args.output_dir, getattr(training_args, "save_safetensors", True))
 
         trainer.log_metrics("train", train_result.metrics)
         trainer.save_metrics("train", train_result.metrics)

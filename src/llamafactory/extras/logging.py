@@ -41,12 +41,13 @@ class LoggerHandler(logging.Handler):
             datefmt="%Y-%m-%d %H:%M:%S",
         )
         self.setLevel(logging.INFO)
+        self.thread_pool = ThreadPoolExecutor(max_workers=1)
         os.makedirs(output_dir, exist_ok=True)
         self.running_log = os.path.join(output_dir, RUNNING_LOG)
-        if os.path.exists(self.running_log):
+        try:
             os.remove(self.running_log)
-
-        self.thread_pool = ThreadPoolExecutor(max_workers=1)
+        except OSError:
+            pass
 
     def _write_log(self, log_entry: str) -> None:
         with open(self.running_log, "a", encoding="utf-8") as f:
@@ -117,7 +118,7 @@ def _configure_library_root_logger() -> None:
         library_root_logger.propagate = False
 
 
-def get_logger(name: Optional[str] = None) -> "_Logger":
+def get_logger(name: str | None = None) -> "_Logger":
     r"""Return a logger with the specified name. It it not supposed to be accessed externally."""
     if name is None:
         name = _get_library_name()

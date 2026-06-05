@@ -14,9 +14,12 @@
 
 import gc
 import json
-from typing import Optional
+import time
 
+import av
 import fire
+from datasets import load_dataset
+from eval_bleu_rouge import compute_metrics
 from tqdm import tqdm
 from transformers import Seq2SeqTrainingArguments
 
@@ -33,6 +36,14 @@ if is_vllm_available():
     from vllm.lora.request import LoRARequest
 
 
+def _need_video_kwargs(template):
+    NEEDED_TEMPLATE = ["qwen3_vl", "glm4v"]
+    if any(t in template for t in NEEDED_TEMPLATE):
+        return True
+
+    return False
+
+
 def vllm_infer(
     model_name_or_path: str,
     adapter_name_or_path: str = None,
@@ -40,18 +51,19 @@ def vllm_infer(
     dataset_dir: str = "data",
     template: str = "default",
     cutoff_len: int = 2048,
-    max_samples: Optional[int] = None,
+    max_samples: int | None = None,
     vllm_config: str = "{}",
     save_name: str = "generated_predictions.jsonl",
+    matrix_save_name: str = None,
     temperature: float = 0.95,
     top_p: float = 0.7,
     top_k: int = 50,
     max_new_tokens: int = 1024,
     repetition_penalty: float = 1.0,
     skip_special_tokens: bool = True,
-    default_system: Optional[str] = None,
+    default_system: str | None = None,
     enable_thinking: bool = True,
-    seed: Optional[int] = None,
+    seed: int | None = None,
     pipeline_parallel_size: int = 1,
     image_max_pixels: int = 768 * 768,
     image_min_pixels: int = 32 * 32,
@@ -109,6 +121,7 @@ def vllm_infer(
     if isinstance(model_args.vllm_config, dict):
         engine_args.update(model_args.vllm_config)
 
+    model_preparation_start_time = time.time()
     llm = LLM(**engine_args)
 
     # load datasets
@@ -132,42 +145,66 @@ def vllm_infer(
 
     # Store all results in these lists
     all_prompts, all_preds, all_labels = [], [], []
+    need_video_kwargs = _need_video_kwargs(template)
 
+    model_predict_start_time = time.time()
     # Add batch process to avoid the issue of too many files opened
     for i in tqdm(range(0, len(train_dataset), batch_size), desc="Processing batched inference"):
         vllm_inputs, prompts, labels = [], [], []
         batch = train_dataset[i : min(i + batch_size, len(train_dataset))]
 
         for j in range(len(batch["input_ids"])):
+            multi_modal_data = {}
+            video_metadata_kwargs = None
+
             if batch["images"][j] is not None:
                 image = batch["images"][j]
-                multi_modal_data = {
-                    "image": template_obj.mm_plugin._regularize_images(
-                        image, image_max_pixels=image_max_pixels, image_min_pixels=image_min_pixels
-                    )["images"]
-                }
-            elif batch["videos"][j] is not None:
+                multi_modal_data["image"] = template_obj.mm_plugin._regularize_images(
+                    image, image_max_pixels=image_max_pixels, image_min_pixels=image_min_pixels
+                )["images"]
+
+            if batch["videos"][j] is not None:
                 video = batch["videos"][j]
-                multi_modal_data = {
-                    "video": template_obj.mm_plugin._regularize_videos(
-                        video,
-                        image_max_pixels=image_max_pixels,
-                        image_min_pixels=image_min_pixels,
-                        video_fps=video_fps,
-                        video_maxlen=video_maxlen,
-                    )["videos"]
-                }
-            elif batch["audios"][j] is not None:
+                multi_modal_data["video"] = template_obj.mm_plugin._regularize_videos(
+                    video,
+                    image_max_pixels=image_max_pixels,
+                    image_min_pixels=image_min_pixels,
+                    video_fps=video_fps,
+                    video_maxlen=video_maxlen,
+                )["videos"]
+                if need_video_kwargs:
+                    container = av.open(video[0], "r")
+                    video_stream = next(stream for stream in container.streams if stream.type == "video")
+                    sampling_indices = template_obj.mm_plugin._get_video_sample_indices(
+                        video_stream, video_fps, video_maxlen
+                    )
+                    total_frames = video_stream.frames
+                    video_metadata_kwargs = {
+                        "fps": getattr(tokenizer_module["processor"], "video_fps", 24.0),
+                        "do_sample_frames": False,
+                        "total_num_frames": total_frames,
+                    }
+                    video_metadata = dict(
+                        fps=video_fps,
+                        frames_indices=sampling_indices,
+                        total_num_frames=total_frames,
+                        video_backend="opencv",
+                    )
+                    multi_modal_data["video"] = (multi_modal_data["video"], video_metadata)
+
+            if batch["audios"][j] is not None:
                 audio = batch["audios"][j]
                 audio_data = template_obj.mm_plugin._regularize_audios(
                     audio,
                     sampling_rate=16000,
                 )
-                multi_modal_data = {"audio": zip(audio_data["audios"], audio_data["sampling_rates"])}
-            else:
-                multi_modal_data = None
+                multi_modal_data["audio"] = zip(audio_data["audios"], audio_data["sampling_rates"])
 
-            vllm_inputs.append({"prompt_token_ids": batch["input_ids"][j], "multi_modal_data": multi_modal_data})
+            vllm_input_data = {"prompt_token_ids": batch["input_ids"][j], "multi_modal_data": multi_modal_data or None}
+            if video_metadata_kwargs is not None:
+                vllm_input_data["mm_processor_kwargs"] = video_metadata_kwargs
+
+            vllm_inputs.append(vllm_input_data)
             prompts.append(tokenizer.decode(batch["input_ids"][j], skip_special_tokens=skip_special_tokens))
             labels.append(
                 tokenizer.decode(
@@ -185,6 +222,7 @@ def vllm_infer(
         all_labels.extend(labels)
         gc.collect()
 
+    model_predict_end_time = time.time()
     # Write all results at once outside the loop
     with open(save_name, "w", encoding="utf-8") as f:
         for text, pred, label in zip(all_prompts, all_preds, all_labels):
@@ -193,6 +231,49 @@ def vllm_infer(
     print("*" * 70)
     print(f"{len(all_prompts)} total generated results have been saved at {save_name}.")
     print("*" * 70)
+
+    # Write all matrix results when matrix_save_name is not None,
+    # The result matrix is referencing src.llamafactory.train.sft.workflow.run_sft # 127~132
+    # trainer.save_metrics("predict", predict_results.metrics)
+    #
+    #   {
+    #        "predict_bleu-4": 4.349975,
+    #        "predict_model_preparation_time": 0.0128,
+    #        "predict_rouge-1": 21.873359375,
+    #        "predict_rouge-2": 4.144340625,
+    #        "predict_rouge-l": 10.83949375,
+    #        "predict_runtime": 131.664,
+    #        "predict_samples_per_second": 0.076,
+    #        "predict_steps_per_second": 0.008
+    #    }
+    #
+    if matrix_save_name is not None:
+        predict_time = model_predict_end_time - model_predict_start_time
+        preparation_time = model_predict_start_time - model_preparation_start_time
+
+        start_time = time.time()
+        dataset = load_dataset("json", data_files=save_name, split="train")
+        dataset = dataset.map(compute_metrics, num_proc=8, remove_columns=dataset.column_names)
+        score_dict = dataset.to_dict()
+
+        average_score = {}
+        for task, scores in sorted(score_dict.items(), key=lambda x: x[0]):
+            score = sum(scores) / len(scores) if scores else 0.0
+            print(f"predict_{task}: {score:.4f}")
+            average_score["predict_" + task] = score
+
+        average_score["predict_model_preparation_time"] = preparation_time
+        average_score["predict_runtime"] = predict_time
+        num_steps = len(range(0, len(train_dataset), batch_size))
+        average_score["predict_samples_per_second"] = len(dataset) / predict_time if predict_time > 0 else 0.0
+        average_score["predict_steps_per_second"] = num_steps / predict_time if predict_time > 0 else 0.0
+
+        with open(matrix_save_name, "w", encoding="utf-8") as f:
+            json.dump(average_score, f, indent=4)
+
+        print("*" * 70)
+        print(f"\nDone in {time.time() - start_time:.3f}s.\nScore file saved to {matrix_save_name}.")
+        print("*" * 70)
 
 
 if __name__ == "__main__":

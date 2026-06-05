@@ -13,7 +13,7 @@
 # limitations under the License.
 
 import json
-from enum import Enum, unique
+from enum import StrEnum, unique
 from typing import TYPE_CHECKING, Any, Optional, TypedDict, Union
 
 import fsspec
@@ -35,7 +35,7 @@ SLOTS = list[Union[str, set[str], dict[str, str]]]
 
 
 @unique
-class Role(str, Enum):
+class Role(StrEnum):
     USER = "user"
     ASSISTANT = "assistant"
     SYSTEM = "system"
@@ -65,11 +65,17 @@ def merge_dataset(
         if not data_args.streaming:
             logger.warning_rank0_once("We recommend using `mix_strategy=concat` in non-streaming mode.")
 
+        strategy_map: str = {
+            "interleave_under": "first_exhausted",
+            "interleave_over": "all_exhausted",
+            "interleave_once": "all_exhausted_without_replacement",
+        }[data_args.mix_strategy]
+
         return interleave_datasets(
             datasets=all_datasets,
             probabilities=data_args.interleave_probs,
             seed=seed,
-            stopping_strategy="first_exhausted" if data_args.mix_strategy.endswith("under") else "all_exhausted",
+            stopping_strategy=strategy_map,  # type: ignore
         )
 
     else:
@@ -81,41 +87,48 @@ def split_dataset(
     eval_dataset: Optional[Union["Dataset", "IterableDataset", dict[str, "Dataset"]]],
     data_args: "DataArguments",
     seed: int,
-) -> "DatasetDict":
-    r"""Split the dataset and returns a dataset dict containing train set and validation set.
+) -> tuple[dict, dict]:
+    r"""Split the dataset and returns two dicts containing train set and validation set.
 
     Support both map dataset and iterable dataset.
+
+    Returns:
+        train_dict: Dictionary containing training data with key "train"
+        eval_dict: Dictionary containing evaluation data with keys "validation" or "validation_{name}"
     """
     if eval_dataset is not None and data_args.val_size > 1e-6:
         raise ValueError("Cannot specify `val_size` if `eval_dataset` is not None.")
 
-    dataset_dict = {}
+    # the train and eval better to in dict dtype and separately return for cpode clearly and good handle outside
+    train_dict, eval_dict = {}, {}
+
     if dataset is not None:
         if data_args.streaming:
             dataset = dataset.shuffle(buffer_size=data_args.buffer_size, seed=seed)
 
         if data_args.val_size > 1e-6:
             if data_args.streaming:
-                dataset_dict["validation"] = dataset.take(int(data_args.val_size))
-                dataset_dict["train"] = dataset.skip(int(data_args.val_size))
+                eval_dict["validation"] = dataset.take(int(data_args.val_size))
+                train_dict["train"] = dataset.skip(int(data_args.val_size))
             else:
                 val_size = int(data_args.val_size) if data_args.val_size > 1 else data_args.val_size
-                dataset_dict = dataset.train_test_split(test_size=val_size, seed=seed)
-                dataset = dataset.train_test_split(test_size=val_size, seed=seed)
-                dataset_dict = {"train": dataset["train"], "validation": dataset["test"]}
+                split_result = dataset.train_test_split(test_size=val_size, seed=seed)
+                train_dict["train"] = split_result["train"]
+                eval_dict["validation"] = split_result["test"]
         else:
-            dataset_dict["train"] = dataset
+            train_dict["train"] = dataset
 
     if eval_dataset is not None:
         if isinstance(eval_dataset, dict):
-            dataset_dict.update({f"validation_{name}": data for name, data in eval_dataset.items()})
+            for name, data in eval_dataset.items():
+                eval_dict[f"validation_{name}"] = data
         else:
             if data_args.streaming:
                 eval_dataset = eval_dataset.shuffle(buffer_size=data_args.buffer_size, seed=seed)
 
-            dataset_dict["validation"] = eval_dataset
+            eval_dict["validation"] = eval_dataset
 
-    return DatasetDict(dataset_dict)
+    return train_dict, eval_dict
 
 
 def get_dataset_module(dataset: Union["Dataset", "DatasetDict"]) -> "DatasetModule":
@@ -183,7 +196,7 @@ def read_cloud_json(cloud_path: str) -> list[Any]:
 
     # filter out non-JSON files
     files = [x["Key"] for x in fs.listdir(cloud_path)] if fs.isdir(cloud_path) else [cloud_path]
-    files = filter(lambda file: file.endswith(".json") or file.endswith(".jsonl"), files)
+    files = list(filter(lambda file: file.endswith(".json") or file.endswith(".jsonl"), files))
     if not files:
         raise ValueError(f"No JSON/JSONL files found in the specified path: {cloud_path}.")
 

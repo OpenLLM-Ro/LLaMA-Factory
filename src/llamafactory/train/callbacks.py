@@ -26,16 +26,13 @@ import transformers
 from peft import PeftModel
 from transformers import PreTrainedModel, ProcessorMixin, TrainerCallback
 from transformers.trainer_utils import PREFIX_CHECKPOINT_DIR, has_length
-from transformers.utils import (
-    SAFE_WEIGHTS_NAME,
-    WEIGHTS_NAME,
-    is_safetensors_available,
-)
+from transformers.utils import SAFE_WEIGHTS_NAME, WEIGHTS_NAME
 from typing_extensions import override
 
 from ..extras import logging
 from ..extras.constants import TRAINER_LOG, V_HEAD_SAFE_WEIGHTS_NAME, V_HEAD_WEIGHTS_NAME
 from ..extras.misc import get_peak_memory, is_env_enabled, use_ray
+from ..extras.packages import is_safetensors_available
 
 
 if is_safetensors_available():
@@ -73,7 +70,7 @@ def fix_valuehead_checkpoint(
     if safe_serialization:
         path_to_checkpoint = os.path.join(output_dir, SAFE_WEIGHTS_NAME)
         with safe_open(path_to_checkpoint, framework="pt", device="cpu") as f:
-            state_dict: dict[str, torch.Tensor] = {key: f.get_tensor(key) for key in f.keys()}
+            state_dict: dict[str, torch.Tensor] = {key: f.get_tensor(key).clone() for key in f.keys()}
     else:
         path_to_checkpoint = os.path.join(output_dir, WEIGHTS_NAME)
         state_dict: dict[str, torch.Tensor] = torch.load(path_to_checkpoint, map_location="cpu", weights_only=True)
@@ -106,7 +103,9 @@ class FixValueHeadModelCallback(TrainerCallback):
         if args.should_save:
             output_dir = os.path.join(args.output_dir, f"{PREFIX_CHECKPOINT_DIR}-{state.global_step}")
             fix_valuehead_checkpoint(
-                model=kwargs.pop("model"), output_dir=output_dir, safe_serialization=args.save_safetensors
+                model=kwargs.pop("model"),
+                output_dir=output_dir,
+                safe_serialization=getattr(args, "save_safetensors", True),
             )
 
 
@@ -140,7 +139,7 @@ class PissaConvertCallback(TrainerCallback):
             if isinstance(model, PeftModel):
                 init_lora_weights = getattr(model.peft_config["default"], "init_lora_weights")
                 setattr(model.peft_config["default"], "init_lora_weights", True)
-                model.save_pretrained(pissa_init_dir, safe_serialization=args.save_safetensors)
+                model.save_pretrained(pissa_init_dir, safe_serialization=getattr(args, "save_safetensors", True))
                 setattr(model.peft_config["default"], "init_lora_weights", init_lora_weights)
 
     @override
@@ -158,11 +157,11 @@ class PissaConvertCallback(TrainerCallback):
             if isinstance(model, PeftModel):
                 init_lora_weights = getattr(model.peft_config["default"], "init_lora_weights")
                 setattr(model.peft_config["default"], "init_lora_weights", True)
-                model.save_pretrained(pissa_backup_dir, safe_serialization=args.save_safetensors)
+                model.save_pretrained(pissa_backup_dir, safe_serialization=getattr(args, "save_safetensors", True))
                 setattr(model.peft_config["default"], "init_lora_weights", init_lora_weights)
                 model.save_pretrained(
                     pissa_convert_dir,
-                    safe_serialization=args.save_safetensors,
+                    safe_serialization=getattr(args, "save_safetensors", True),
                     path_initial_model_for_weight_conversion=pissa_init_dir,
                 )
                 model.load_adapter(pissa_backup_dir, "default", is_trainable=True)
@@ -229,7 +228,7 @@ class LogCallback(TrainerCallback):
         if (
             args.should_save
             and os.path.exists(os.path.join(args.output_dir, TRAINER_LOG))
-            and args.overwrite_output_dir
+            and getattr(args, "overwrite_output_dir", False)
         ):
             logger.warning_rank0_once("Previous trainer log in this folder will be deleted.")
             os.remove(os.path.join(args.output_dir, TRAINER_LOG))
@@ -364,6 +363,18 @@ class ReporterCallback(TrainerCallback):
             import wandb
 
             wandb.config.update(
+                {
+                    "model_args": self.model_args.to_dict(),
+                    "data_args": self.data_args.to_dict(),
+                    "finetuning_args": self.finetuning_args.to_dict(),
+                    "generating_args": self.generating_args.to_dict(),
+                }
+            )
+
+        if "trackio" in args.report_to:
+            import trackio
+
+            trackio.config.update(
                 {
                     "model_args": self.model_args.to_dict(),
                     "data_args": self.data_args.to_dict(),

@@ -20,6 +20,7 @@ import importlib.util
 from functools import lru_cache
 from typing import TYPE_CHECKING
 
+import transformers.utils.import_utils as import_utils
 from packaging import version
 
 
@@ -58,12 +59,24 @@ def is_apollo_available():
     return _is_package_available("apollo_torch")
 
 
+def is_jieba_available():
+    return _is_package_available("jieba")
+
+
 def is_gradio_available():
     return _is_package_available("gradio")
 
 
 def is_matplotlib_available():
     return _is_package_available("matplotlib")
+
+
+def is_hyper_parallel_available():
+    return _is_package_available("hyper_parallel")
+
+
+def is_mcore_adapter_available():
+    return _is_package_available("mcore_adapter")
 
 
 def is_pillow_available():
@@ -74,12 +87,24 @@ def is_ray_available():
     return _is_package_available("ray")
 
 
+def is_kt_available():
+    return _is_package_available("kt_kernel")
+
+
 def is_requests_available():
     return _is_package_available("requests")
 
 
 def is_rouge_available():
     return _is_package_available("rouge_chinese")
+
+
+def is_safetensors_available():
+    return _is_package_available("safetensors")
+
+
+def is_sglang_available():
+    return _is_package_available("sglang")
 
 
 def is_starlette_available():
@@ -91,6 +116,11 @@ def is_transformers_version_greater_than(content: str):
     return _get_package_version("transformers") >= version.parse(content)
 
 
+@lru_cache
+def is_torch_version_greater_than(content: str):
+    return _get_package_version("torch") >= version.parse(content)
+
+
 def is_uvicorn_available():
     return _is_package_available("uvicorn")
 
@@ -99,5 +129,24 @@ def is_vllm_available():
     return _is_package_available("vllm")
 
 
-def is_sglang_available():
-    return _is_package_available("sglang")
+_orig_is_package_available = import_utils._is_package_available
+
+
+class PackageAvailability(tuple):
+    __slots__ = ()
+
+    def __new__(cls, available: bool, pkg_version: str = "N/A"):
+        return super().__new__(cls, (bool(available), pkg_version))
+
+    def __bool__(self) -> bool:
+        return self[0]
+
+
+def _patched_is_package_available(pkg_name: str, return_version: bool = False):
+    available, version = _orig_is_package_available(pkg_name, return_version=return_version)
+
+    return PackageAvailability(available, version)
+
+
+if is_transformers_version_greater_than("5.3.0"):
+    import_utils._is_package_available = _patched_is_package_available

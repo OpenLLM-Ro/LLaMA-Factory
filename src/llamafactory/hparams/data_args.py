@@ -16,22 +16,22 @@
 # limitations under the License.
 
 from dataclasses import asdict, dataclass, field
-from typing import Any, Literal, Optional
+from typing import Any, Literal
 
 
 @dataclass
 class DataArguments:
     r"""Arguments pertaining to what data we are going to input our model for training and evaluation."""
 
-    template: Optional[str] = field(
+    template: str | None = field(
         default=None,
         metadata={"help": "Which template to use for constructing prompts in training and inference."},
     )
-    dataset: Optional[str] = field(
+    dataset: str | None = field(
         default=None,
         metadata={"help": "The name of dataset(s) to use for training. Use commas to separate multiple datasets."},
     )
-    eval_dataset: Optional[str] = field(
+    eval_dataset: str | None = field(
         default=None,
         metadata={"help": "The name of dataset(s) to use for evaluation. Use commas to separate multiple datasets."},
     )
@@ -39,7 +39,7 @@ class DataArguments:
         default="data",
         metadata={"help": "Path to the folder containing the datasets."},
     )
-    media_dir: Optional[str] = field(
+    media_dir: str | None = field(
         default=None,
         metadata={"help": "Path to the folder containing the images, videos or audios. Defaults to `dataset_dir`."},
     )
@@ -63,11 +63,13 @@ class DataArguments:
         default=16384,
         metadata={"help": "Size of the buffer to randomly sample examples from in dataset streaming."},
     )
-    mix_strategy: Literal["concat", "interleave_under", "interleave_over"] = field(
+    mix_strategy: Literal["concat", "interleave_under", "interleave_over", "interleave_once"] = field(
         default="concat",
-        metadata={"help": "Strategy to use in dataset mixing (concat/interleave) (undersampling/oversampling)."},
+        metadata={
+            "help": "Strategy to use in dataset mixing (concat/interleave) (undersampling/oversampling/sampling w.o. replacement)."
+        },
     )
-    interleave_probs: Optional[str] = field(
+    interleave_probs: str | None = field(
         default=None,
         metadata={"help": "Probabilities to sample data from datasets. Use commas to separate multiple datasets."},
     )
@@ -79,15 +81,15 @@ class DataArguments:
         default=1000,
         metadata={"help": "The number of examples in one group in pre-processing."},
     )
-    preprocessing_num_workers: Optional[int] = field(
+    preprocessing_num_workers: int | None = field(
         default=None,
         metadata={"help": "The number of processes to use for the pre-processing."},
     )
-    max_samples: Optional[int] = field(
+    max_samples: int | None = field(
         default=None,
         metadata={"help": "For debugging purposes, truncate the number of examples for each dataset."},
     )
-    eval_num_beams: Optional[int] = field(
+    eval_num_beams: int | None = field(
         default=None,
         metadata={"help": "Number of beams to use for evaluation. This argument will be passed to `model.generate`"},
     )
@@ -103,7 +105,7 @@ class DataArguments:
         default=False,
         metadata={"help": "Whether or not to evaluate on each dataset separately."},
     )
-    packing: Optional[bool] = field(
+    packing: bool | None = field(
         default=None,
         metadata={"help": "Enable sequences packing in training. Will automatically enable in pre-training."},
     )
@@ -111,19 +113,23 @@ class DataArguments:
         default=False,
         metadata={"help": "Enable sequence packing without cross-attention."},
     )
-    tool_format: Optional[str] = field(
+    tool_format: str | None = field(
         default=None,
         metadata={"help": "Tool format to use for constructing function calling examples."},
     )
-    default_system: Optional[str] = field(
+    default_system: str | None = field(
         default=None,
         metadata={"help": "Override the default system message in the template."},
     )
-    enable_thinking: Optional[bool] = field(
+    enable_thinking: bool | None = field(
         default=True,
         metadata={"help": "Whether or not to enable thinking mode for reasoning models."},
     )
-    tokenized_path: Optional[str] = field(
+    preserve_thinking: bool = field(
+        default=False,
+        metadata={"help": "Whether or not to preserve thinking content in historical turns for reasoning models."},
+    )
+    tokenized_path: str | None = field(
         default=None,
         metadata={
             "help": (

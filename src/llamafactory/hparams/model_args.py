@@ -1,4 +1,4 @@
-# Copyright 2025 HuggingFace Inc. and the LlamaFactory team.
+# Copyright 2025 HuggingFace Inc., the KVCache.AI team, Approaching AI, and the LlamaFactory team.
 #
 # This code is inspired by the HuggingFace's transformers library.
 # https://github.com/huggingface/transformers/blob/v4.40.0/examples/pytorch/language-modeling/run_clm.py
@@ -16,27 +16,32 @@
 # limitations under the License.
 
 import json
+import os
 from dataclasses import asdict, dataclass, field, fields
-from typing import Any, Literal, Optional, Union
+from typing import Any, Literal, Self
 
 import torch
+from omegaconf import OmegaConf
 from transformers.training_args import _convert_str_dict
-from typing_extensions import Self
 
 from ..extras.constants import AttentionFunction, EngineName, QuantizationMethod, RopeScaling
+from ..extras.logging import get_logger
+
+
+logger = get_logger(__name__)
 
 
 @dataclass
 class BaseModelArguments:
     r"""Arguments pertaining to the model."""
 
-    model_name_or_path: Optional[str] = field(
+    model_name_or_path: str | None = field(
         default=None,
         metadata={
             "help": "Path to the model weight or identifier from huggingface.co/models or modelscope.cn/models."
         },
     )
-    adapter_name_or_path: Optional[str] = field(
+    adapter_name_or_path: str | None = field(
         default=None,
         metadata={
             "help": (
@@ -45,11 +50,11 @@ class BaseModelArguments:
             )
         },
     )
-    adapter_folder: Optional[str] = field(
+    adapter_folder: str | None = field(
         default=None,
         metadata={"help": "The folder containing the adapter weights to load."},
     )
-    cache_dir: Optional[str] = field(
+    cache_dir: str | None = field(
         default=None,
         metadata={"help": "Where to store the pre-trained models downloaded from huggingface.co or modelscope.cn."},
     )
@@ -65,15 +70,37 @@ class BaseModelArguments:
         default=False,
         metadata={"help": "Whether or not the special tokens should be split during the tokenization process."},
     )
-    add_tokens: Optional[str] = field(
+    add_tokens: str | None = field(
         default=None,
         metadata={
             "help": "Non-special tokens to be added into the tokenizer. Use commas to separate multiple tokens."
         },
     )
-    add_special_tokens: Optional[str] = field(
+    add_special_tokens: str | None = field(
         default=None,
         metadata={"help": "Special tokens to be added into the tokenizer. Use commas to separate multiple tokens."},
+    )
+    new_special_tokens_config: str | None = field(
+        default=None,
+        metadata={
+            "help": (
+                "Path to YAML config with special token descriptions for semantic initialization. "
+                "If set, this takes precedence over add_special_tokens. "
+                "YAML format: {'<token>': 'description text', ...}"
+            )
+        },
+    )
+    init_special_tokens: Literal["noise_init", "desc_init", "desc_init_w_noise"] = field(
+        default="noise_init",
+        metadata={
+            "help": (
+                "Initialization method for new special tokens: "
+                "'noise_init' (default, random noise around mean), "
+                "'desc_init' (semantic initialization from descriptions), "
+                "'desc_init_w_noise' (semantic + random noise). "
+                "Note: 'desc_init' methods require new_special_tokens_config."
+            )
+        },
     )
     model_revision: str = field(
         default="main",
@@ -83,7 +110,7 @@ class BaseModelArguments:
         default=True,
         metadata={"help": "Whether or not to use memory-efficient model loading."},
     )
-    rope_scaling: Optional[RopeScaling] = field(
+    rope_scaling: RopeScaling | None = field(
         default=None,
         metadata={"help": "Which scaling strategy should be adopted for the RoPE embeddings."},
     )
@@ -95,7 +122,7 @@ class BaseModelArguments:
         default=False,
         metadata={"help": "Enable shift short attention (S^2-Attn) proposed by LongLoRA."},
     )
-    mixture_of_depths: Optional[Literal["convert", "load"]] = field(
+    mixture_of_depths: Literal["convert", "load"] | None = field(
         default=None,
         metadata={"help": "Convert the model to mixture-of-depths (MoD) or load the MoD model."},
     )
@@ -111,7 +138,7 @@ class BaseModelArguments:
         default=False,
         metadata={"help": "Whether or not to enable liger kernel for faster training."},
     )
-    moe_aux_loss_coef: Optional[float] = field(
+    moe_aux_loss_coef: float | None = field(
         default=None,
         metadata={"help": "Coefficient of the auxiliary router loss in mixture-of-experts model."},
     )
@@ -143,23 +170,27 @@ class BaseModelArguments:
         default="offload",
         metadata={"help": "Path to offload model weights."},
     )
-    use_cache: bool = field(
+    use_kv_cache: bool = field(
         default=True,
         metadata={"help": "Whether or not to use KV cache in generation."},
+    )
+    use_v1_kernels: bool | None = field(
+        default=False,
+        metadata={"help": "Whether or not to use high-performance kernels in training."},
     )
     infer_dtype: Literal["auto", "float16", "bfloat16", "float32"] = field(
         default="auto",
         metadata={"help": "Data type for model weights and activations at inference."},
     )
-    hf_hub_token: Optional[str] = field(
+    hf_hub_token: str | None = field(
         default=None,
         metadata={"help": "Auth token to log in with Hugging Face Hub."},
     )
-    ms_hub_token: Optional[str] = field(
+    ms_hub_token: str | None = field(
         default=None,
         metadata={"help": "Auth token to log in with ModelScope Hub."},
     )
-    om_hub_token: Optional[str] = field(
+    om_hub_token: str | None = field(
         default=None,
         metadata={"help": "Auth token to log in with Modelers Hub."},
     )
@@ -176,17 +207,69 @@ class BaseModelArguments:
         if self.model_name_or_path is None:
             raise ValueError("Please provide `model_name_or_path`.")
 
-        if self.split_special_tokens and self.use_fast_tokenizer:
-            raise ValueError("`split_special_tokens` is only supported for slow tokenizers.")
-
         if self.adapter_name_or_path is not None:  # support merging multiple lora weights
             self.adapter_name_or_path = [path.strip() for path in self.adapter_name_or_path.split(",")]
 
         if self.add_tokens is not None:  # support multiple tokens
             self.add_tokens = [token.strip() for token in self.add_tokens.split(",")]
 
-        if self.add_special_tokens is not None:  # support multiple special tokens
+        # Process special tokens with priority: new_special_tokens_config > add_special_tokens
+        if self.new_special_tokens_config is not None:
+            # Priority 1: Load from YAML config (extracts both tokens and descriptions)
+            try:
+                cfg = OmegaConf.load(self.new_special_tokens_config)
+                token_descriptions = OmegaConf.to_container(cfg)
+
+                if not isinstance(token_descriptions, dict):
+                    raise ValueError(
+                        f"YAML config must be a dictionary mapping tokens to descriptions. "
+                        f"Got: {type(token_descriptions)}"
+                    )
+
+                # Extract token list from config keys
+                extracted_tokens = list(token_descriptions.keys())
+
+                # Warn if both are set
+                if self.add_special_tokens is not None:
+                    logger.warning_rank0(
+                        "Both 'new_special_tokens_config' and 'add_special_tokens' are set. "
+                        f"Using tokens from config: {extracted_tokens}"
+                    )
+
+                # Override add_special_tokens with extracted tokens (as list)
+                self.add_special_tokens = extracted_tokens
+
+                # Store descriptions internally for later use (internal attribute)
+                self._special_token_descriptions = token_descriptions
+
+                logger.info_rank0(
+                    f"Loaded {len(extracted_tokens)} special tokens with descriptions from: "
+                    f"{self.new_special_tokens_config}"
+                )
+
+            except Exception as e:
+                logger.error_rank0(
+                    f"Failed to load special tokens config from '{self.new_special_tokens_config}': {e}"
+                )
+                raise
+
+        elif self.add_special_tokens is not None:
+            # Priority 2: Use simple comma-separated string (no descriptions)
             self.add_special_tokens = [token.strip() for token in self.add_special_tokens.split(",")]
+            self._special_token_descriptions = None
+
+        else:
+            # No special tokens to add
+            self._special_token_descriptions = None
+
+        # Validate init method
+        if self.init_special_tokens in ["desc_init", "desc_init_w_noise"]:
+            if self._special_token_descriptions is None:
+                logger.warning_rank0(
+                    f"init_special_tokens='{self.init_special_tokens}' requires new_special_tokens_config. "
+                    "Falling back to 'noise_init'"
+                )
+                self.init_special_tokens = "noise_init"
 
 
 @dataclass
@@ -197,7 +280,7 @@ class QuantizationArguments:
         default=QuantizationMethod.BNB,
         metadata={"help": "Quantization method to use for on-the-fly quantization."},
     )
-    quantization_bit: Optional[int] = field(
+    quantization_bit: int | None = field(
         default=None,
         metadata={"help": "The number of bits to quantize the model using on-the-fly quantization."},
     )
@@ -209,7 +292,7 @@ class QuantizationArguments:
         default=True,
         metadata={"help": "Whether or not to use double quantization in bitsandbytes int4 training."},
     )
-    quantization_device_map: Optional[Literal["auto"]] = field(
+    quantization_device_map: Literal["auto"] | None = field(
         default=None,
         metadata={"help": "Device map used to infer the 4-bit quantized model, needs bitsandbytes>=0.43.0."},
     )
@@ -272,7 +355,7 @@ class ProcessorArguments:
 class ExportArguments:
     r"""Arguments pertaining to the model export."""
 
-    export_dir: Optional[str] = field(
+    export_dir: str | None = field(
         default=None,
         metadata={"help": "Path to the directory to save the exported model."},
     )
@@ -284,11 +367,11 @@ class ExportArguments:
         default="cpu",
         metadata={"help": "The device used in model export, use `auto` to accelerate exporting."},
     )
-    export_quantization_bit: Optional[int] = field(
+    export_quantization_bit: int | None = field(
         default=None,
         metadata={"help": "The number of bits to quantize the exported model."},
     )
-    export_quantization_dataset: Optional[str] = field(
+    export_quantization_dataset: str | None = field(
         default=None,
         metadata={"help": "Path to the dataset or dataset name to use in quantizing the exported model."},
     )
@@ -304,7 +387,7 @@ class ExportArguments:
         default=False,
         metadata={"help": "Whether or not to save the `.bin` files instead of `.safetensors`."},
     )
-    export_hub_model_id: Optional[str] = field(
+    export_hub_model_id: str | None = field(
         default=None,
         metadata={"help": "The name of the repository if push the model to the Hugging Face hub."},
     )
@@ -334,7 +417,7 @@ class VllmArguments:
         default=32,
         metadata={"help": "Maximum rank of all LoRAs in the vLLM engine."},
     )
-    vllm_config: Optional[Union[dict, str]] = field(
+    vllm_config: dict | str | None = field(
         default=None,
         metadata={"help": "Config to initialize the vllm engine. Please use JSON strings."},
     )
@@ -360,7 +443,7 @@ class SGLangArguments:
         default=-1,
         metadata={"help": "Tensor parallel size for the SGLang engine."},
     )
-    sglang_config: Optional[Union[dict, str]] = field(
+    sglang_config: dict | str | None = field(
         default=None,
         metadata={"help": "Config to initialize the SGLang engine. Please use JSON strings."},
     )
@@ -377,25 +460,110 @@ class SGLangArguments:
 
 
 @dataclass
+class KTransformersArguments:
+    r"""Arguments pertaining to KTransformers AMX MoE SFT training.
+
+    These fields are normalized into the transformers/accelerate KT config before training starts.
+    """
+
+    use_kt: bool = field(
+        default=False,
+        metadata={"help": "Whether to use KTransformers AMX MoE backend for SFT training."},
+    )
+    kt_weight_path: str | None = field(
+        default=None,
+        metadata={"help": "Path to pre-quantized INT8 expert weights (.kt files)."},
+    )
+    kt_expert_checkpoint_path: str | None = field(
+        default=None,
+        metadata={"help": "Path to expert checkpoint (safetensors) for online conversion."},
+    )
+    kt_use_lora_experts: bool | None = field(
+        default=None,
+        metadata={"help": "Whether to use GPU-side LoRA Experts."},
+    )
+    kt_lora_expert_num: int | None = field(
+        default=None,
+        metadata={"help": "Number of GPU-side LoRA Experts."},
+    )
+    kt_lora_expert_intermediate_size: int | None = field(
+        default=None,
+        metadata={"help": "Intermediate size for GPU-side LoRA Experts."},
+    )
+
+    def get_kt_config_dict(self, finetuning_args: Any, model_max_length: int | None) -> dict[str, Any]:
+        r"""Build KT config values from LLaMA-Factory model and LoRA arguments."""
+        kt_config = {
+            "kt_lora_rank": getattr(finetuning_args, "lora_rank", None),
+            "kt_lora_alpha": getattr(finetuning_args, "lora_alpha", None),
+            "kt_weight_path": self.kt_weight_path,
+            "kt_expert_checkpoint_path": self.kt_expert_checkpoint_path,
+            "kt_model_max_length": model_max_length,
+            "kt_use_lora_experts": self.kt_use_lora_experts,
+            "kt_lora_expert_num": self.kt_lora_expert_num,
+            "kt_lora_expert_intermediate_size": self.kt_lora_expert_intermediate_size,
+        }
+        return {key: value for key, value in kt_config.items() if value is not None}
+
+    def apply_kt_config(self, finetuning_args: Any, training_args: Any, model_max_length: int | None) -> None:
+        r"""Apply LLaMA-Factory KT args to transformers/accelerate KT integration points."""
+        if not self.use_kt:
+            return
+
+        kt_config = self.get_kt_config_dict(finetuning_args, model_max_length)
+        env_mapping = {
+            "kt_weight_path": "ACCELERATE_KT_WEIGHT_PATH",
+            "kt_expert_checkpoint_path": "ACCELERATE_KT_EXPERT_CHECKPOINT_PATH",
+            "kt_model_max_length": "ACCELERATE_KT_MODEL_MAX_LENGTH",
+            "kt_lora_rank": "ACCELERATE_KT_LORA_RANK",
+            "kt_lora_alpha": "ACCELERATE_KT_LORA_ALPHA",
+            "kt_use_lora_experts": "ACCELERATE_KT_USE_LORA_EXPERTS",
+            "kt_lora_expert_num": "ACCELERATE_KT_LORA_EXPERT_NUM",
+            "kt_lora_expert_intermediate_size": "ACCELERATE_KT_LORA_EXPERT_INTERMEDIATE_SIZE",
+        }
+        for key, env_key in env_mapping.items():
+            value = kt_config.get(key)
+            if value is not None:
+                os.environ[env_key] = str(value)
+
+        hf_kt = getattr(training_args, "hf_kt_config", None)
+        if hf_kt is None or not hasattr(hf_kt, "_kt_config") or not isinstance(hf_kt._kt_config, dict):
+            return
+
+        hf_kt._kt_config.update(kt_config)
+        gc_enabled = getattr(training_args, "gradient_checkpointing", False) or not getattr(
+            self, "disable_gradient_checkpointing", True
+        )
+        if gc_enabled:
+            hf_kt._kt_config.setdefault("kt_share_cache_pool", True)
+
+
+@dataclass
 class ModelArguments(
-    SGLangArguments, VllmArguments, ExportArguments, ProcessorArguments, QuantizationArguments, BaseModelArguments
+    SGLangArguments,
+    VllmArguments,
+    KTransformersArguments,
+    ExportArguments,
+    ProcessorArguments,
+    QuantizationArguments,
+    BaseModelArguments,
 ):
     r"""Arguments pertaining to which model/config/tokenizer we are going to fine-tune or infer.
 
     The class on the most right will be displayed first.
     """
 
-    compute_dtype: Optional[torch.dtype] = field(
+    compute_dtype: torch.dtype | None = field(
         default=None,
         init=False,
         metadata={"help": "Torch data type for computing model outputs, derived from `fp/bf16`. Do not specify it."},
     )
-    device_map: Optional[Union[str, dict[str, Any]]] = field(
+    device_map: str | dict[str, Any] | None = field(
         default=None,
         init=False,
         metadata={"help": "Device map for model placement, derived from training stage. Do not specify it."},
     )
-    model_max_length: Optional[int] = field(
+    model_max_length: int | None = field(
         default=None,
         init=False,
         metadata={"help": "The maximum input length for model, derived from `cutoff_len`. Do not specify it."},

@@ -16,7 +16,6 @@ import json
 import re
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
-from typing import Optional, Union
 
 from typing_extensions import override
 
@@ -27,14 +26,14 @@ from .tool_utils import FunctionCall, get_tool_utils
 @dataclass
 class Formatter(ABC):
     slots: SLOTS = field(default_factory=list)
-    tool_format: Optional[str] = None
+    tool_format: str | None = None
 
     @abstractmethod
     def apply(self, **kwargs) -> SLOTS:
         r"""Forms a list of slots according to the inputs to encode."""
         ...
 
-    def extract(self, content: str) -> Union[str, list["FunctionCall"]]:
+    def extract(self, content: str) -> str | list["FunctionCall"]:
         r"""Extract a list of tuples from the response message if using tools.
 
         Each tuple consists of function name and function arguments.
@@ -97,28 +96,46 @@ class FunctionFormatter(StringFormatter):
     @override
     def apply(self, **kwargs) -> SLOTS:
         content: str = kwargs.pop("content")
-        regex = re.compile(r"<think>(.*)</think>", re.DOTALL)
-        thought = re.search(regex, content)
-        if thought:
-            content = content.replace(thought.group(0), "")
+        thought_words = kwargs.pop("thought_words", None)
+        tool_call_words = kwargs.pop("tool_call_words", None)
 
-        functions: list[FunctionCall] = []
-        try:
-            tool_calls = json.loads(content)
-            if not isinstance(tool_calls, list):  # parallel function call
-                tool_calls = [tool_calls]
+        def _parse_functions(json_content: str) -> list["FunctionCall"]:
+            try:
+                tool_calls = json.loads(json_content)
+                if not isinstance(tool_calls, list):  # parallel function call
+                    tool_calls = [tool_calls]
 
-            for tool_call in tool_calls:
-                functions.append(
-                    FunctionCall(tool_call["name"], json.dumps(tool_call["arguments"], ensure_ascii=False))
-                )
+                return [FunctionCall(tc["name"], json.dumps(tc["arguments"], ensure_ascii=False)) for tc in tool_calls]
+            except json.JSONDecodeError:
+                raise RuntimeError(f"Invalid JSON format in function message: {str([content])}.")
 
-        except json.JSONDecodeError:
-            raise RuntimeError(f"Invalid JSON format in function message: {str([content])}.")  # flat string
+        tool_call_match = None
+        if tool_call_words and len(tool_call_words) == 2:
+            tool_call_regex = re.compile(
+                rf"{re.escape(tool_call_words[0])}(.*?){re.escape(tool_call_words[1])}", re.DOTALL
+            )
+            tool_call_match = re.search(tool_call_regex, content)
 
-        function_str = self.tool_utils.function_formatter(functions)
-        if thought:
-            function_str = thought.group(0) + function_str
+        if tool_call_match is None:
+            thought_match = None
+            if thought_words and len(thought_words) == 2:
+                regex = re.compile(rf"{re.escape(thought_words[0])}(.*?){re.escape(thought_words[1])}", re.DOTALL)
+                thought_match = re.search(regex, content)
+
+            if thought_match:
+                json_part = content.replace(thought_match.group(0), "")
+            else:
+                json_part = content
+
+            functions = _parse_functions(json_part)
+            function_str = self.tool_utils.function_formatter(functions)
+            if thought_match:
+                function_str = thought_match.group(0) + function_str
+        else:
+            thought_content = content.replace(tool_call_match.group(0), "")
+            functions = _parse_functions(tool_call_match.group(1))
+            function_str = self.tool_utils.function_formatter(functions)
+            function_str = thought_content + function_str
 
         return super().apply(content=function_str)
 
@@ -138,5 +155,5 @@ class ToolFormatter(Formatter):
             raise RuntimeError(f"Invalid JSON format in tool description: {str([content])}.")  # flat string
 
     @override
-    def extract(self, content: str) -> Union[str, list["FunctionCall"]]:
+    def extract(self, content: str) -> str | list["FunctionCall"]:
         return self.tool_utils.tool_extractor(content)

@@ -16,7 +16,8 @@ import os
 
 import pytest
 import torch
-from transformers import AutoConfig, AutoModelForVision2Seq
+from safetensors.torch import load_file
+from transformers import AutoConfig, AutoModelForImageTextToText
 
 from llamafactory.extras.packages import is_transformers_version_greater_than
 from llamafactory.hparams import FinetuningArguments, ModelArguments
@@ -36,7 +37,7 @@ def test_visual_full(freeze_vision_tower: bool, freeze_multi_modal_projector: bo
     )
     config = AutoConfig.from_pretrained(model_args.model_name_or_path)
     with torch.device("meta"):
-        model = AutoModelForVision2Seq.from_config(config)
+        model = AutoModelForImageTextToText.from_config(config)
 
     model = init_adapter(config, model, model_args, finetuning_args, is_trainable=True)
     for name, param in model.named_parameters():
@@ -56,7 +57,7 @@ def test_visual_lora(freeze_vision_tower: bool, freeze_language_model: bool):
     )
     config = AutoConfig.from_pretrained(model_args.model_name_or_path)
     with torch.device("meta"):
-        model = AutoModelForVision2Seq.from_config(config)
+        model = AutoModelForImageTextToText.from_config(config)
 
     model = init_adapter(config, model, model_args, finetuning_args, is_trainable=True)
     trainable_params, frozen_params = set(), set()
@@ -86,13 +87,14 @@ def test_visual_model_save_load():
     finetuning_args = FinetuningArguments(finetuning_type="full")
     config = AutoConfig.from_pretrained(model_args.model_name_or_path)
     with torch.device("meta"):
-        model = AutoModelForVision2Seq.from_config(config)
+        model = AutoModelForImageTextToText.from_config(config)
 
     model = init_adapter(config, model, model_args, finetuning_args, is_trainable=False)
+    model.to_empty(device="cpu")
     loaded_model_weight = dict(model.named_parameters())
 
-    model.save_pretrained(os.path.join("output", "qwen2_vl"), max_shard_size="10GB", safe_serialization=False)
-    saved_model_weight = torch.load(os.path.join("output", "qwen2_vl", "pytorch_model.bin"), weights_only=False)
+    model.save_pretrained(os.path.join("output", "qwen2_vl"), max_shard_size="10GB", safe_serialization=True)
+    saved_model_weight = load_file(os.path.join("output", "qwen2_vl", "model.safetensors"))
 
     if is_transformers_version_greater_than("4.52.0"):
         assert "model.language_model.layers.0.self_attn.q_proj.weight" in loaded_model_weight

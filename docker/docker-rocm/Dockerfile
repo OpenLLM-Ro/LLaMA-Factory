@@ -1,13 +1,12 @@
 # https://hub.docker.com/r/rocm/pytorch/tags
-ARG BASE_IMAGE=rocm/pytorch:rocm6.4.1_ubuntu22.04_py3.10_pytorch_release_2.6.0
+# ROCm 7.2 + PyTorch 2.7.1 (Python 3.12). Keep base image's PyTorch; do not reinstall.
+ARG BASE_IMAGE=rocm/pytorch:rocm7.2_ubuntu24.04_py3.12_pytorch_release_2.7.1
 FROM ${BASE_IMAGE}
 
 # Installation arguments
 ARG PIP_INDEX=https://pypi.org/simple
-ARG EXTRAS=metrics
 ARG INSTALL_FLASHATTN=false
 ARG HTTP_PROXY=""
-ARG PYTORCH_INDEX=https://download.pytorch.org/whl/rocm6.3
 
 # Define environments
 ENV MAX_JOBS=16
@@ -28,21 +27,14 @@ WORKDIR /app
 # Change pip source
 RUN pip config set global.index-url "${PIP_INDEX}" && \
     pip config set global.extra-index-url "${PIP_INDEX}" && \
-    pip install --no-cache-dir --upgrade pip packaging wheel setuptools
+    pip install --no-cache-dir --upgrade pip packaging wheel setuptools editables "hatchling>=1.18.0"
 
-# Reinstall pytorch rocm
-RUN pip uninstall -y torch torchvision torchaudio && \
-    pip install --no-cache-dir --pre torch torchvision torchaudio --index-url "${PYTORCH_INDEX}"
-
-# Install the requirements
-COPY requirements.txt /app
-RUN pip install --no-cache-dir -r requirements.txt
-
-# Copy the rest of the application into the image
+# Copy the application into the image
 COPY . /app
 
-# Install LLaMA Factory
-RUN pip install --no-cache-dir -e ".[${EXTRAS}]" --no-build-isolation
+# Install LLaMA Factory (use base image's PyTorch/ROCm; do not reinstall)
+RUN pip install --no-cache-dir -e . --pre && \
+    pip install --no-cache-dir -r requirements/deepspeed.txt -r requirements/liger-kernel.txt -r requirements/bitsandbytes.txt
 
 # Rebuild flash attention
 RUN if [ "${INSTALL_FLASHATTN}" == "true" ]; then \
@@ -65,6 +57,12 @@ EXPOSE 8000
 # unset proxy
 ENV http_proxy=
 ENV https_proxy=
+
+# Set no_proxy environment variable
+ENV no_proxy="localhost, 127.0.0.1, ::1"
+
+# fix pydantic version
+RUN pip install pydantic==2.10.6
 
 # Reset pip config
 RUN pip config unset global.index-url && \

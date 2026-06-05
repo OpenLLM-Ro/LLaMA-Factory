@@ -17,6 +17,7 @@
 
 import json
 import os
+from functools import partial
 from types import MethodType
 from typing import TYPE_CHECKING, Any, Optional, Union
 
@@ -27,17 +28,17 @@ from typing_extensions import override
 
 from ...extras import logging
 from ...extras.constants import IGNORE_INDEX
-from ...extras.packages import is_transformers_version_greater_than
 from ..callbacks import SaveProcessorCallback
+from ..fp8_utils import configure_fp8_environment, patch_accelerator_for_fp8, verify_fp8_status
 from ..trainer_utils import create_custom_optimizer, create_custom_scheduler
 
 
 if TYPE_CHECKING:
     from torch.utils.data import Dataset
-    from transformers import PreTrainedTokenizer, ProcessorMixin
+    from transformers import ProcessorMixin
     from transformers.trainer import PredictionOutput
 
-    from ...hparams import FinetuningArguments
+    from ...hparams import FinetuningArguments, ModelArguments, TrainingArguments
 
 
 logger = logging.get_logger(__name__)
@@ -50,13 +51,18 @@ class CustomSeq2SeqTrainer(Seq2SeqTrainer):
         self,
         finetuning_args: "FinetuningArguments",
         processor: Optional["ProcessorMixin"],
+        model_args: Optional["ModelArguments"] = None,
         gen_kwargs: Optional[dict[str, Any]] = None,
+        ref_model: Optional["torch.nn.Module"] = None,
         **kwargs,
     ) -> None:
-        if is_transformers_version_greater_than("4.46"):
-            kwargs["processing_class"] = kwargs.pop("tokenizer")
-        else:
-            self.processing_class: PreTrainedTokenizer = kwargs.get("tokenizer")
+        kwargs["processing_class"] = kwargs.pop("tokenizer")
+        # Configure FP8 environment if enabled
+        training_args: TrainingArguments = kwargs.get("args")
+        if training_args.fp8:
+            configure_fp8_environment(training_args)
+            if getattr(training_args, "fp8_backend", "auto") == "te":
+                patch_accelerator_for_fp8()
 
         super().__init__(**kwargs)
         if processor is not None:
@@ -77,6 +83,49 @@ class CustomSeq2SeqTrainer(Seq2SeqTrainer):
 
             self.accelerator.clip_grad_norm_ = MethodType(clip_grad_norm_old_version, self.accelerator)
             self.add_callback(BAdamCallback)
+
+        self.ref_model = ref_model
+
+        if ref_model is not None:
+            from trl.models.utils import prepare_deepspeed, prepare_fsdp
+
+            if getattr(self.accelerator.state, "deepspeed_plugin", None) is not None:
+                if not (
+                    getattr(ref_model, "is_loaded_in_8bit", False) or getattr(ref_model, "is_loaded_in_4bit", False)
+                ):  # quantized models are already set on the correct device
+                    self.ref_model = prepare_deepspeed(self.ref_model, self.accelerator)
+            elif getattr(self.accelerator.state, "fsdp_plugin", None) is not None:
+                if self.accelerator.is_fsdp2:
+                    from accelerate.utils.fsdp_utils import fsdp2_prepare_model
+
+                    self.ref_model = fsdp2_prepare_model(self.accelerator, self.ref_model)
+                else:
+                    self.ref_model = prepare_fsdp(self.ref_model, self.accelerator)
+            else:
+                self.ref_model = self.accelerator.prepare_model(self.ref_model, evaluation_mode=True)
+                self.ref_model.eval()
+
+        if finetuning_args.use_dft_loss:
+            from ..trainer_utils import dft_loss_func
+
+            self.compute_loss_func = dft_loss_func
+
+        elif finetuning_args.use_eaft_loss:
+            from ..trainer_utils import eaft_loss_func
+
+            self.compute_loss_func = lambda outputs, labels, num_items_in_batch=None: eaft_loss_func(
+                outputs, labels, num_items_in_batch, finetuning_args.eaft_alpha
+            )
+        elif finetuning_args.use_asft_loss:
+            from ..trainer_utils import asft_loss_func
+
+            self.compute_loss_func = partial(
+                asft_loss_func,
+                asft_alpha=finetuning_args.asft_alpha,
+            )
+
+        if training_args.fp8 and hasattr(self, "accelerator"):  # verify FP8 status after trainer initialization
+            verify_fp8_status(self.accelerator, training_args)
 
     @override
     def create_optimizer(self) -> "torch.optim.Optimizer":
@@ -100,7 +149,17 @@ class CustomSeq2SeqTrainer(Seq2SeqTrainer):
 
     @override
     def compute_loss(self, model, inputs, *args, **kwargs):
-        return super().compute_loss(model, inputs, *args, **kwargs)
+        if self.finetuning_args.use_asft_loss:
+            with torch.no_grad():
+                ref_outputs = self.ref_model(
+                    input_ids=inputs["input_ids"],
+                    attention_mask=inputs.get("attention_mask", None),
+                )
+                ref_logits = ref_outputs.logits
+            outputs = model(**inputs)
+            return self.compute_loss_func(outputs, inputs["labels"], ref_logits)
+        else:
+            return super().compute_loss(model, inputs, *args, **kwargs)
 
     @override
     def prediction_step(
@@ -156,7 +215,13 @@ class CustomSeq2SeqTrainer(Seq2SeqTrainer):
             if len(pad_len):  # move pad token to last
                 preds[i] = np.concatenate((preds[i][pad_len[0] :], preds[i][: pad_len[0]]), axis=-1)
 
-        decoded_inputs = self.processing_class.batch_decode(dataset["input_ids"], skip_special_tokens=False)
+        input_ids_column = dataset["input_ids"]
+        try:
+            input_ids_list = input_ids_column.to_pylist()
+        except AttributeError:
+            input_ids_list = list(input_ids_column)
+
+        decoded_inputs = self.processing_class.batch_decode(input_ids_list, skip_special_tokens=False)
         decoded_preds = self.processing_class.batch_decode(preds, skip_special_tokens=skip_special_tokens)
         decoded_labels = self.processing_class.batch_decode(labels, skip_special_tokens=skip_special_tokens)
 

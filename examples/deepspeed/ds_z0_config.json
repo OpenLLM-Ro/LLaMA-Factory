@@ -5,7 +5,7 @@
   "gradient_clipping": "auto",
   "zero_allow_untested_optimizer": true,
   "fp16": {
-    "enabled": "auto",
+    "enabled": false,
     "loss_scale": 0,
     "loss_scale_window": 1000,
     "initial_scale_power": 16,
@@ -13,15 +13,15 @@
     "min_loss_scale": 1
   },
   "bf16": {
-    "enabled": "auto"
+    "enabled": true
   },
   "zero_optimization": {
     "stage": 0,
     "allgather_partitions": true,
-    "allgather_bucket_size": 5e8,
+    "allgather_bucket_size": 500000000.0,
     "overlap_comm": false,
     "reduce_scatter": true,
-    "reduce_bucket_size": 5e8,
+    "reduce_bucket_size": 500000000.0,
     "contiguous_gradients": true,
     "round_robin_gradients": true
   }

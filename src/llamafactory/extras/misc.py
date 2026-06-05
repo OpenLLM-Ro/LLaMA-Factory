@@ -18,7 +18,7 @@
 import gc
 import os
 import socket
-from typing import TYPE_CHECKING, Any, Literal, Union
+from typing import TYPE_CHECKING, Any, Literal, Optional, Union
 
 import torch
 import torch.distributed as dist
@@ -94,11 +94,11 @@ def check_version(requirement: str, mandatory: bool = False) -> None:
 
 def check_dependencies() -> None:
     r"""Check the version of the required packages."""
-    check_version("transformers>=4.49.0,<=4.53.0,!=4.52.0")
-    check_version("datasets>=2.16.0,<=3.6.0")
-    check_version("accelerate>=1.3.0,<=1.8.1")
-    check_version("peft>=0.14.0,<=0.16.0")
-    check_version("trl>=0.8.6,<=0.9.6")
+    check_version("transformers>=4.55.0,<=5.6.0")
+    check_version("datasets>=2.16.0,<=4.0.0")
+    check_version("accelerate>=1.3.0,<=1.15.0")
+    check_version("peft>=0.18.0,<=0.20.0")
+    check_version("trl>=0.18.0,<=0.24.0")
 
 
 def calculate_tps(dataset: list[dict[str, Any]], metrics: dict[str, float], stage: Literal["sft", "rm"]) -> float:
@@ -157,6 +157,33 @@ def get_current_device() -> "torch.device":
     return torch.device(device)
 
 
+def get_device_name() -> str:
+    r"""Get the name of available devices."""
+    if is_torch_xpu_available():
+        device = "xpu"
+    elif is_torch_npu_available():
+        device = "npu"
+    elif is_torch_mps_available():
+        device = "mps"
+    elif is_torch_cuda_available():
+        device = "gpu"
+    else:
+        device = "cpu"
+
+    return device
+
+
+def get_torch_device():
+    r"""Get the torch device namespace for the available devices."""
+    device_name = get_device_name()
+    device_name = "cuda" if device_name == "gpu" else device_name
+    try:
+        return getattr(torch, device_name)
+    except AttributeError:
+        logger.warning_rank0(f"Device namespace '{device_name}' not found in torch, try to load torch.cuda.")
+        return torch.cuda
+
+
 def get_device_count() -> int:
     r"""Get the number of available devices."""
     if is_torch_xpu_available():
@@ -211,9 +238,9 @@ def has_tokenized_data(path: "os.PathLike") -> bool:
     return os.path.isdir(path) and len(os.listdir(path)) > 0
 
 
-def infer_optim_dtype(model_dtype: "torch.dtype") -> "torch.dtype":
+def infer_optim_dtype(model_dtype: Optional["torch.dtype"]) -> "torch.dtype":
     r"""Infer the optimal dtype according to the model_dtype and device compatibility."""
-    if _is_bf16_available and model_dtype == torch.bfloat16:
+    if _is_bf16_available and (model_dtype == torch.bfloat16 or model_dtype is None):
         return torch.bfloat16
     elif _is_fp16_available:
         return torch.float16
@@ -313,6 +340,10 @@ def use_ray() -> bool:
     return is_env_enabled("USE_RAY")
 
 
+def use_kt() -> bool:
+    return is_env_enabled("USE_KT")
+
+
 def find_available_port() -> int:
     r"""Find an available port on the local machine."""
     sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
@@ -328,3 +359,7 @@ def fix_proxy(ipv6_enabled: bool = False) -> None:
     if ipv6_enabled:
         os.environ.pop("http_proxy", None)
         os.environ.pop("HTTP_PROXY", None)
+        os.environ.pop("https_proxy", None)
+        os.environ.pop("HTTPS_PROXY", None)
+        os.environ.pop("all_proxy", None)
+        os.environ.pop("ALL_PROXY", None)

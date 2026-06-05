@@ -20,6 +20,7 @@ from datasets import load_dataset
 from transformers import AutoTokenizer
 
 from llamafactory.extras.constants import IGNORE_INDEX
+from llamafactory.extras.packages import is_transformers_version_greater_than
 from llamafactory.train.test_utils import load_dataset_module
 
 
@@ -51,6 +52,7 @@ def _convert_sharegpt_to_openai(messages: list[dict[str, str]]) -> list[dict[str
     return new_messages
 
 
+@pytest.mark.runs_on(["cpu", "mps"])
 @pytest.mark.parametrize("num_samples", [16])
 def test_pairwise_data(num_samples: int):
     train_dataset = load_dataset_module(**TRAIN_ARGS)["train_dataset"]
@@ -62,13 +64,21 @@ def test_pairwise_data(num_samples: int):
         rejected_messages = original_data["conversations"][index] + [original_data["rejected"][index]]
         chosen_messages = _convert_sharegpt_to_openai(chosen_messages)
         rejected_messages = _convert_sharegpt_to_openai(rejected_messages)
+
         ref_chosen_input_ids = ref_tokenizer.apply_chat_template(chosen_messages)
-        chosen_prompt_len = len(ref_tokenizer.apply_chat_template(chosen_messages[:-1], add_generation_prompt=True))
-        ref_chosen_labels = [IGNORE_INDEX] * chosen_prompt_len + ref_chosen_input_ids[chosen_prompt_len:]
+        ref_chosen_prompt_ids = ref_tokenizer.apply_chat_template(chosen_messages[:-1], add_generation_prompt=True)
         ref_rejected_input_ids = ref_tokenizer.apply_chat_template(rejected_messages)
-        rejected_prompt_len = len(
-            ref_tokenizer.apply_chat_template(rejected_messages[:-1], add_generation_prompt=True)
-        )
+        ref_rejected_prompt_ids = ref_tokenizer.apply_chat_template(rejected_messages[:-1], add_generation_prompt=True)
+
+        if is_transformers_version_greater_than("5.0.0"):
+            ref_chosen_input_ids = ref_chosen_input_ids["input_ids"]
+            ref_rejected_input_ids = ref_rejected_input_ids["input_ids"]
+            ref_chosen_prompt_ids = ref_chosen_prompt_ids["input_ids"]
+            ref_rejected_prompt_ids = ref_rejected_prompt_ids["input_ids"]
+
+        chosen_prompt_len = len(ref_chosen_prompt_ids)
+        rejected_prompt_len = len(ref_rejected_prompt_ids)
+        ref_chosen_labels = [IGNORE_INDEX] * chosen_prompt_len + ref_chosen_input_ids[chosen_prompt_len:]
         ref_rejected_labels = [IGNORE_INDEX] * rejected_prompt_len + ref_rejected_input_ids[rejected_prompt_len:]
         assert train_dataset["chosen_input_ids"][index] == ref_chosen_input_ids
         assert train_dataset["chosen_labels"][index] == ref_chosen_labels

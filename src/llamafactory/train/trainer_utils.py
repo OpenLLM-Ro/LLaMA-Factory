@@ -19,11 +19,11 @@
 
 import json
 import os
-from collections.abc import Mapping
-from pathlib import Path
-from typing import TYPE_CHECKING, Any, Callable, Optional, Union
+from collections.abc import Callable, Mapping
+from typing import TYPE_CHECKING, Any, Optional, Union
 
 import torch
+import torch.nn.functional as F
 from transformers import Trainer
 from transformers.integrations import is_deepspeed_zero3_enabled
 from transformers.modeling_utils import is_fsdp_enabled
@@ -34,6 +34,7 @@ from typing_extensions import override
 
 from ..extras import logging
 from ..extras.constants import IGNORE_INDEX, SWANLAB_CONFIG
+from ..extras.misc import get_device_name
 from ..extras.packages import is_apollo_available, is_galore_available, is_ray_available
 from ..hparams import FinetuningArguments, ModelArguments
 from ..model import find_all_linear_modules, load_model, load_tokenizer, load_valuehead_params
@@ -49,15 +50,16 @@ if is_apollo_available():
 
 if is_ray_available():
     import ray
-    from ray.train import RunConfig, ScalingConfig
-    from ray.train.torch import TorchTrainer
+    from ray.util.placement_group import PlacementGroup, placement_group
+    from ray.util.scheduling_strategies import PlacementGroupSchedulingStrategy
+    from ray.util.state import list_nodes
 
 
 if TYPE_CHECKING:
     from transformers import PreTrainedModel, TrainerCallback, TrainerState
     from trl import AutoModelForCausalLMWithValueHead
 
-    from ..hparams import DataArguments, RayArguments, TrainingArguments
+    from ..hparams import DataArguments, TrainingArguments
 
 
 logger = logging.get_logger(__name__)
@@ -100,12 +102,15 @@ def create_modelcard_and_push(
     if model_args.use_unsloth:
         kwargs["tags"] = kwargs["tags"] + ["unsloth"]
 
+    if model_args.use_kt:
+        kwargs["tags"] = kwargs["tags"] + ["kt-kernel"]
+
     if not training_args.do_train:
         pass
     elif training_args.push_to_hub:
         trainer.push_to_hub(**kwargs)
     else:
-        trainer.create_model_card(license="other", **kwargs)  # prevent from connecting to hub
+        Trainer.create_model_card(trainer, license="other", **kwargs)  # prevent from connecting to hub
 
 
 def create_ref_model(
@@ -595,6 +600,7 @@ def get_batch_logps(
     Returns:
         logps: A tensor of shape (batch_size,) containing the sum of log probabilities.
         valid_length: A tensor of shape (batch_size,) containing the number of non-masked tokens.
+
     """
     if logits.shape[:-1] != labels.shape:
         raise ValueError("Logits (batchsize x seqlen) and labels must have the same shape.")
@@ -628,6 +634,196 @@ def get_batch_logps(
         logps = (per_token_logps * loss_mask).sum(-1)
 
     return logps, valid_length
+
+
+def dft_loss_func(
+    outputs: "torch.Tensor", labels: "torch.Tensor", num_items_in_batch: Optional["torch.Tensor"] = None
+):
+    logits = outputs.get("logits")
+    if logits is None:
+        return outputs.get("loss", torch.tensor(0.0))
+
+    logits = logits.float()
+    vocab_size = logits.size(-1)
+    labels = torch.nn.functional.pad(labels, (0, 1), value=-100)
+    shift_labels = labels[..., 1:].contiguous()
+    logits = logits.view(-1, vocab_size)
+    shift_labels = shift_labels.view(-1)
+    shift_labels = shift_labels.to(logits.device)
+
+    loss = _dft_cross_entropy(logits, shift_labels, num_items_in_batch)
+    return loss
+
+
+def _dft_cross_entropy(
+    source: "torch.Tensor",
+    target: "torch.Tensor",
+    num_items_in_batch: Optional["torch.Tensor"] = None,
+    ignore_index: int = -100,
+) -> "torch.Tensor":
+    per_token_loss = torch.nn.functional.cross_entropy(source, target, ignore_index=ignore_index, reduction="none")
+    valid_mask = target != ignore_index
+    if not valid_mask.any():
+        return torch.tensor(0.0, device=source.device, dtype=source.dtype)
+
+    valid_losses = per_token_loss[valid_mask]
+
+    with torch.no_grad():
+        target_probs = torch.exp(-valid_losses)
+
+    weighted_losses = valid_losses * target_probs
+
+    if num_items_in_batch is not None:
+        total_loss = weighted_losses.sum()
+        if torch.is_tensor(num_items_in_batch):
+            num_items_in_batch = num_items_in_batch.to(total_loss.device)
+        loss = total_loss / num_items_in_batch
+    else:
+        loss = weighted_losses.mean()
+    return loss
+
+
+def asft_loss_func(
+    outputs,
+    labels: torch.Tensor,
+    ref_logits: torch.Tensor,
+    asft_alpha: float = 0.1,
+    ignore_index: int = -100,
+) -> torch.Tensor:
+    logits = outputs.get("logits")
+    if logits is None:
+        return outputs.get("loss", torch.tensor(0.0))
+
+    logits = logits.float()
+
+    # shift for causal LM
+    shift_logits = logits[..., :-1, :].contiguous()
+    shift_labels = labels[..., 1:].contiguous()
+    shift_ref_logits = ref_logits[..., :-1, :].contiguous()
+
+    vocab_size = shift_logits.size(-1)
+
+    # flatten
+    shift_logits = shift_logits.view(-1, vocab_size)
+    shift_ref_logits = shift_ref_logits.view(-1, vocab_size)
+    shift_labels = shift_labels.view(-1).to(shift_logits.device)
+
+    return _asft_cross_entropy(
+        policy_logits=shift_logits,
+        policy_labels=shift_labels,
+        ref_logits=shift_ref_logits,
+        asft_alpha=asft_alpha,
+        ignore_index=ignore_index,
+    )
+
+
+def _asft_cross_entropy(
+    policy_logits: torch.Tensor,
+    policy_labels: torch.Tensor,
+    ref_logits: torch.Tensor,
+    asft_alpha: float = 0.1,
+    ignore_index: int = -100,
+) -> torch.Tensor:
+    dft_loss = _dft_cross_entropy(
+        policy_logits,
+        policy_labels,
+        ignore_index=ignore_index,
+    )
+
+    kl_loss = _kl_divergence(
+        policy_logits,
+        ref_logits,
+        policy_labels,
+        ignore_index=ignore_index,
+    )
+
+    return dft_loss + asft_alpha * kl_loss
+
+
+def _kl_divergence(
+    policy_logits: torch.Tensor,
+    ref_logits: torch.Tensor,
+    labels: torch.Tensor,
+    ignore_index: int = -100,
+) -> torch.Tensor:
+    # log p(y|x)
+    log_p = F.log_softmax(policy_logits, dim=-1)
+
+    # q(y|x)
+    q = F.softmax(ref_logits, dim=-1)
+
+    # token-wise KL
+    kl = F.kl_div(
+        log_p,
+        q,
+        reduction="none",
+    ).sum(dim=-1)  # [N]
+
+    # mask padding tokens
+    mask = (labels != ignore_index).float()
+
+    return (kl * mask).sum() / mask.sum()
+
+
+def eaft_loss_func(
+    outputs: "torch.Tensor",
+    labels: "torch.Tensor",
+    num_items_in_batch: Optional["torch.Tensor"] = None,
+    alpha: float = 1.0,
+) -> "torch.Tensor":
+    logits = outputs.get("logits")
+    if logits is None:
+        return outputs.get("loss", torch.tensor(0.0))
+
+    logits = logits.float()
+    vocab_size = logits.size(-1)
+    labels = torch.nn.functional.pad(labels, (0, 1), value=-100)
+    shift_labels = labels[..., 1:].contiguous()
+    logits = logits.view(-1, vocab_size)
+    shift_labels = shift_labels.view(-1)
+    shift_labels = shift_labels.to(logits.device)
+
+    loss = _eaft_cross_entropy(logits, shift_labels, num_items_in_batch, alpha)
+    return loss
+
+
+def _eaft_cross_entropy(
+    source: "torch.Tensor",
+    target: "torch.Tensor",
+    num_items_in_batch: Optional["torch.Tensor"] = None,
+    alpha: float = 1.0,
+    ignore_index: int = -100,
+) -> "torch.Tensor":
+    per_token_loss = torch.nn.functional.cross_entropy(source, target, ignore_index=ignore_index, reduction="none")
+    valid_mask = target != ignore_index
+    if not valid_mask.any():
+        return torch.tensor(0.0, device=source.device, dtype=source.dtype)
+
+    valid_losses = per_token_loss[valid_mask]
+
+    with torch.no_grad():
+        source_detached = source[valid_mask].detach()
+
+        topk_val, _ = torch.topk(source_detached, k=20, dim=-1)
+        logsumexp_topk = torch.logsumexp(topk_val, dim=-1, keepdim=True)
+        log_probs_topk = topk_val - logsumexp_topk
+        probs_topk = torch.exp(log_probs_topk)
+        entropy_approx = -(probs_topk * log_probs_topk).sum(dim=-1)
+
+        entropy_term = entropy_approx / 3.0
+        adaptive_weight = torch.pow(entropy_term, alpha)
+
+    weighted_losses = valid_losses * adaptive_weight
+
+    if num_items_in_batch is not None:
+        total_loss = weighted_losses.sum()
+        if torch.is_tensor(num_items_in_batch):
+            num_items_in_batch = num_items_in_batch.to(total_loss.device)
+        loss = total_loss / num_items_in_batch
+    else:
+        loss = weighted_losses.mean()
+
+    return loss
 
 
 def nested_detach(
@@ -695,36 +891,88 @@ def get_swanlab_callback(finetuning_args: "FinetuningArguments") -> "TrainerCall
     return swanlab_callback
 
 
-def get_ray_trainer(
-    training_function: Callable,
-    train_loop_config: dict[str, Any],
-    ray_args: "RayArguments",
-) -> "TorchTrainer":
-    if not ray_args.use_ray:
-        raise ValueError("Ray was not enabled. Please set `USE_RAY=1` to enable ray.")
+def get_placement_group(num_workers: int) -> tuple["PlacementGroup", dict[str, int]]:
+    r"""Get the Ray placement group for distributed training."""
+    bundle = {"CPU": 10}
+    device_name = get_device_name().upper()
+    if device_name != "CPU":
+        bundle[device_name] = 1
+    bundles = [bundle for _ in range(num_workers)]
+    pg = placement_group(bundles, strategy="PACK")
 
-    if ray_args.ray_init_kwargs is not None:
-        ray.init(**ray_args.ray_init_kwargs)
+    return pg, bundle
 
-    if ray_args.ray_storage_filesystem is not None:
-        # this means we are using s3/gcs
-        storage_path = ray_args.ray_storage_path
-    else:
-        storage_path = Path(ray_args.ray_storage_path).absolute().as_posix()
 
-    trainer = TorchTrainer(
-        training_function,
-        train_loop_config=train_loop_config,
-        scaling_config=ScalingConfig(
-            num_workers=ray_args.ray_num_workers,
-            resources_per_worker=ray_args.resources_per_worker,
-            placement_strategy=ray_args.placement_strategy,
-            use_gpu=True,
+def get_ray_remote_config_for_worker(
+    placement_group: "PlacementGroup",
+    bundle_idx: int,
+    rank: int,
+    world_size: int,
+    master_addr: str,
+    master_port: str,
+    env: dict[str, str] = None,
+) -> dict[str, Any]:
+    r"""Get the remote config for a Ray worker."""
+    env_vars = {
+        "RANK": str(rank),
+        "WORLD_SIZE": str(world_size),
+        "MASTER_ADDR": master_addr,
+        "MASTER_PORT": master_port,
+        "TORCHELASTIC_USE_AGENT_STORE": "False",
+    }
+    env.update(env_vars)
+
+    remote_config = {
+        "scheduling_strategy": PlacementGroupSchedulingStrategy(
+            placement_group=placement_group,
+            placement_group_bundle_index=bundle_idx,
         ),
-        run_config=RunConfig(
-            name=ray_args.ray_run_name,
-            storage_filesystem=ray_args.ray_storage_filesystem,
-            storage_path=storage_path,
-        ),
-    )
-    return trainer
+        "runtime_env": {"env_vars": env},
+        "num_cpus": 10,
+    }
+
+    device_name = get_device_name()
+    if device_name == "gpu":
+        remote_config["num_gpus"] = 1
+    elif device_name == "npu":
+        remote_config["resources"] = {"NPU": 1}
+
+    return remote_config
+
+
+def get_ray_head_node_ip() -> str:
+    r"""Get the IP address of the Ray head node."""
+    head_ip = next(node["node_ip"] for node in list_nodes() if node.get("is_head_node", False))
+    return head_ip
+
+
+def sort_placement_group_by_node_ip(placement_group: "PlacementGroup", master_addr: str = None) -> list[int]:
+    r"""Sort the placement group bundles by their node IP addresses."""
+
+    @ray.remote
+    def _get_node_ip():
+        return ray.util.get_node_ip_address().strip("[]")
+
+    tasks = []
+    for bundle_idx in range(placement_group.bundle_count):
+        task = _get_node_ip.options(
+            scheduling_strategy=PlacementGroupSchedulingStrategy(
+                placement_group=placement_group,
+                placement_group_bundle_index=bundle_idx,
+            ),
+        ).remote()
+        tasks.append(task)
+
+    bundle_ips = ray.get(tasks)
+    bundle_node_ip_list = list(enumerate(bundle_ips))
+
+    sorted_bundle_node_ip_list = sorted(bundle_node_ip_list, key=lambda x: x[1])
+    sorted_bundle_indices = [item[0] for item in sorted_bundle_node_ip_list]
+
+    if master_addr is not None:
+        preferred_indices = [idx for idx, ip in bundle_node_ip_list if ip == master_addr]
+        if preferred_indices:
+            remaining = [i for i in sorted_bundle_indices if i not in preferred_indices]
+            sorted_bundle_indices = preferred_indices + remaining
+
+    return sorted_bundle_indices

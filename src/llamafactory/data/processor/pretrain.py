@@ -28,10 +28,13 @@ class PretrainDatasetProcessor(DatasetProcessor):
         # build grouped texts with format `X1 X2 X3 ...` if packing is enabled
         eos_token = "<|end_of_text|>" if self.data_args.template == "llama3" else self.tokenizer.eos_token
         text_examples = [messages[0]["content"] + eos_token for messages in examples["_prompt"]]
+
         if not self.data_args.packing:
-            # if getattr(self.tokenizer, "add_bos_token", False):
-            if self.tokenizer.bos_token != None:
+            # OpenLLM-Ro: prepend BOS whenever the tokenizer defines one (not just when add_bos_token is set).
+            # Original upstream: if getattr(self.tokenizer, "add_bos_token", False):
+            if self.tokenizer.bos_token is not None:
                 text_examples = [self.tokenizer.bos_token + example for example in text_examples]
+
             result = self.tokenizer(
                 text_examples, add_special_tokens=False, truncation=True, max_length=self.data_args.cutoff_len
             )

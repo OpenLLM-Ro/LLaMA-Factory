@@ -16,7 +16,7 @@ import os
 from typing import TYPE_CHECKING, Literal, Optional, Union
 
 import numpy as np
-from datasets import Dataset, load_dataset, load_from_disk
+from datasets import Dataset, DatasetDict, load_dataset, load_from_disk
 
 from ..extras import logging
 from ..extras.constants import FILEEXT2TYPE
@@ -137,7 +137,6 @@ def _load_single_dataset(
             cache_dir=model_args.cache_dir,
             token=model_args.hf_hub_token,
             num_proc=data_args.preprocessing_num_workers,
-            trust_remote_code=model_args.trust_remote_code,
             streaming=data_args.streaming and dataset_attr.load_from != "file",
         )
         if data_args.streaming and dataset_attr.load_from == "file":
@@ -163,13 +162,13 @@ def _load_single_dataset(
 
 
 def _get_merged_dataset(
-    dataset_names: Optional[list[str]],
+    dataset_names: list[str] | None,
     model_args: "ModelArguments",
     data_args: "DataArguments",
     training_args: "Seq2SeqTrainingArguments",
     stage: Literal["pt", "sft", "rm", "ppo", "kto"],
     return_dict: bool = False,
-) -> Optional[Union["Dataset", "IterableDataset", dict[str, "Dataset"]]]:
+) -> Union["Dataset", "IterableDataset", dict[str, "Dataset"]] | None:
     r"""Return the merged datasets in the standard format."""
     if dataset_names is None:
         return None
@@ -228,7 +227,7 @@ def _get_dataset_processor(
 
 
 def _get_preprocessed_dataset(
-    dataset: Optional[Union["Dataset", "IterableDataset"]],
+    dataset: Union["Dataset", "IterableDataset"] | None,
     data_args: "DataArguments",
     training_args: "Seq2SeqTrainingArguments",
     stage: Literal["pt", "sft", "rm", "ppo", "kto"],
@@ -236,7 +235,7 @@ def _get_preprocessed_dataset(
     tokenizer: "PreTrainedTokenizer",
     processor: Optional["ProcessorMixin"] = None,
     is_eval: bool = False,
-) -> Optional[Union["Dataset", "IterableDataset"]]:
+) -> Union["Dataset", "IterableDataset"] | None:
     r"""Preprocesses the dataset, including format checking and tokenization."""
     if dataset is None:
         return None
@@ -312,20 +311,22 @@ def get_dataset(
         )
 
     with training_args.main_process_first(desc="pre-process dataset", local=(not data_args.data_shared_file_system)):
-        dataset = _get_preprocessed_dataset(
-            dataset, data_args, training_args, stage, template, tokenizer, processor, is_eval=False
-        )
-        if isinstance(eval_dataset, dict):
-            for eval_name, eval_data in eval_dataset.items():
-                eval_dataset[eval_name] = _get_preprocessed_dataset(
-                    eval_data, data_args, training_args, stage, template, tokenizer, processor, is_eval=True
-                )
-        else:
-            eval_dataset = _get_preprocessed_dataset(
-                eval_dataset, data_args, training_args, stage, template, tokenizer, processor, is_eval=True
+        # move front to make sure eval_dataset(if contain or split) can preprocessed appropriately
+        train_dict, eval_dict = split_dataset(dataset, eval_dataset, data_args, seed=training_args.seed)
+
+        if "train" in train_dict:
+            train_dict["train"] = _get_preprocessed_dataset(
+                train_dict["train"], data_args, training_args, stage, template, tokenizer, processor, is_eval=False
             )
 
-        dataset_dict = split_dataset(dataset, eval_dataset, data_args, seed=training_args.seed)
+        for key in eval_dict:
+            eval_dict[key] = _get_preprocessed_dataset(
+                eval_dict[key], data_args, training_args, stage, template, tokenizer, processor, is_eval=True
+            )
+
+        # Combine train and eval dictionaries
+        dataset_dict = DatasetDict({**train_dict, **eval_dict})
+
         if data_args.tokenized_path is not None:  # save tokenized dataset to disk
             if training_args.should_save:
                 dataset_dict.save_to_disk(data_args.tokenized_path)

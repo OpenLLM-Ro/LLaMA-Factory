@@ -12,9 +12,18 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from llamafactory.train.tuner import run_exp
 import os
+
 os.environ["WANDB_PROJECT"] = "llama_factory"
+os.environ["WANDB__SERVICE_WAIT"] = "300"
+os.environ["HF_HOME"] = "/export/projects/nlp/.cache"
+
+import torch._dynamo
+
+torch._dynamo.config.suppress_errors = True
+torch._dynamo.config.disable = True
+
+from llamafactory.train.tuner import run_exp
 
 
 def main():

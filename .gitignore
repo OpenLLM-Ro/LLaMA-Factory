@@ -85,7 +85,7 @@ ipython_config.py
 # pyenv
 #   For a library or package, you might want to ignore these files since the code is
 #   intended to run in multiple environments; otherwise, check them in:
-# .python-version
+.python-version
 
 # pipenv
 #   According to pypa/pipenv#598, it is recommended to include Pipfile.lock in version control.
@@ -165,24 +165,63 @@ cython_debug/
 # uv
 uv.lock
 
+# macOS
+.DS_Store
+
 # custom .gitignore
-ms_cache/
 hf_cache/
+ms_cache/
 om_cache/
-cache/
-data/raw_ro_pretrain/
-data/ro_pretrain/
-data/ro_sft*.json
-data/ro_sft_ultrachat/*.json
-data/ro_sft_bench/
-data/ro_sft_oasst/*.jso*
-
-data/ro_dpo*.json
-data/ro_dpo/*
-
-config/
+llamaboard_cache/
+llamaboard_config/
 saves/
 output/
+outputs/
 wandb/
 swanlog/
 generated_predictions.jsonl
+predictions_score.json
+
+# OpenLLM-Ro: local-only large artifacts (trained checkpoints, wandb exports)
+rodpo-*/
+wandb_train.csv
+wandb_system.csv
+
+# OpenLLM-Ro: local training data (HF-hosted via dataset_info.json; NOT shipped in git — files >100MB break GitHub)
+data/ro_vlm_*.json
+data/ro_vlm_*_enimg
+data/hot_*.json
+data/lw_hot_*/
+exec_big_label1_clean.json
+
+# OpenLLM-Ro: local working scripts & artifacts at repo root (data prep / verification / inference / configs — local only, never published)
+/Custom*.py
+/aggregate_folds.py
+/build_*.py
+/check_*.py
+/collect_*.py
+/convert.py
+/dataset_stats.py
+/download_*.py
+/dump_*.py
+/filter_*.py
+/fix_image_path*.py
+/inference*.py
+/llm_*.py
+/merge_lora_manual.py
+/test_*.py
+/upload_*.py
+/validate_*.py
+/verify_*.py
+/config_*.yaml
+!/config_vlm_sft_example.yaml
+/repull_corrupt.sh
+/run.sh
+/en_integrity_corrupt.txt
+/pixmo_count_en_missing.txt
+/pixmo_cap_corrupt_manifest.json
+/peft_*.out
+/testA.*
+/testB.*
+/hora.jpeg
+/setup.py

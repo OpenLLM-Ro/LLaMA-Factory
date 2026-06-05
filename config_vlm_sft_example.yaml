@@ -1,0 +1,56 @@
+# model
+model_name_or_path: "llava-hf/llama3-llava-next-8b-hf"
+
+# method
+stage: sft
+do_train: true
+finetuning_type: full
+freeze_vision_tower: true  # choices: [true, false]
+freeze_multi_modal_projector: false  # choices: [true, false]
+freeze_language_model: false  # choices: [true, false]
+
+use_cache: false
+
+# ddp
+ddp_timeout: 180000000
+deepspeed: examples/deepspeed/ds_z3_config.json
+
+
+# dataset
+dataset_dir: data
+dataset: ro_sft_laion, ro_sft_llava_mix, ro_sft_pixmo_aa, ro_sft_pixmo_cap, ro_sft_pixmo_cap_qa, ro_sft_pixmo_count, ro_sft_pixmo_points, ro_sft_flickr30k_cap, ro_sft_flickr30k_qa, ro_sft_finepdfs, ro_sft_cosyn
+template: llava_next_llama3
+cutoff_len: 8192
+val_size: 0.01
+overwrite_cache: true
+preprocessing_num_workers: 32
+# preprocessing_batch_size: 32
+
+# output
+output_dir: saves/run0
+run_name: run0
+logging_steps: 1
+save_strategy: epoch
+plot_loss: true
+overwrite_output_dir: true
+
+per_device_train_batch_size: 2
+gradient_accumulation_steps: 4
+learning_rate: 1.0e-5
+lr_scheduler_type: cosine_with_min_lr
+lr_scheduler_kwargs: {"min_lr": 1.0e-6}
+num_train_epochs: 1.0
+warmup_ratio: 0.025
+bf16: true
+flash_attn: fa2
+optim: adamw_torch
+
+
+# eval
+per_device_eval_batch_size: 4
+eval_strategy: epoch
+
+# misc
+report_to: wandb
+trust_remote_code: true
+

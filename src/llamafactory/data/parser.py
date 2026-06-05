@@ -15,7 +15,7 @@
 import json
 import os
 from dataclasses import dataclass
-from typing import Any, Literal, Optional
+from typing import Any, Literal
 
 from huggingface_hub import hf_hub_download
 
@@ -30,43 +30,43 @@ class DatasetAttr:
     # basic configs
     load_from: Literal["hf_hub", "ms_hub", "om_hub", "script", "file"]
     dataset_name: str
-    formatting: Literal["alpaca", "sharegpt"] = "alpaca"
+    formatting: Literal["alpaca", "sharegpt", "openai"] = "alpaca"
     ranking: bool = False
     # extra configs
-    subset: Optional[str] = None
+    subset: str | None = None
     split: str = "train"
-    folder: Optional[str] = None
-    num_samples: Optional[int] = None
+    folder: str | None = None
+    num_samples: int | None = None
     # common columns
-    system: Optional[str] = None
-    tools: Optional[str] = None
-    images: Optional[str] = None
-    videos: Optional[str] = None
-    audios: Optional[str] = None
+    system: str | None = None
+    tools: str | None = None
+    images: str | None = None
+    videos: str | None = None
+    audios: str | None = None
     # dpo columns
-    chosen: Optional[str] = None
-    rejected: Optional[str] = None
-    kto_tag: Optional[str] = None
+    chosen: str | None = None
+    rejected: str | None = None
+    kto_tag: str | None = None
     # alpaca columns
-    prompt: Optional[str] = "instruction"
-    query: Optional[str] = "input"
-    response: Optional[str] = "output"
-    history: Optional[str] = None
+    prompt: str | None = "instruction"
+    query: str | None = "input"
+    response: str | None = "output"
+    history: str | None = None
     # sharegpt columns
-    messages: Optional[str] = "conversations"
+    messages: str | None = "conversations"
     # sharegpt tags
-    role_tag: Optional[str] = "from"
-    content_tag: Optional[str] = "value"
-    user_tag: Optional[str] = "human"
-    assistant_tag: Optional[str] = "gpt"
-    observation_tag: Optional[str] = "observation"
-    function_tag: Optional[str] = "function_call"
-    system_tag: Optional[str] = "system"
+    role_tag: str | None = "from"
+    content_tag: str | None = "value"
+    user_tag: str | None = "human"
+    assistant_tag: str | None = "gpt"
+    observation_tag: str | None = "observation"
+    function_tag: str | None = "function_call"
+    system_tag: str | None = "system"
 
     def __repr__(self) -> str:
         return self.dataset_name
 
-    def set_attr(self, key: str, obj: dict[str, Any], default: Optional[Any] = None) -> None:
+    def set_attr(self, key: str, obj: dict[str, Any], default: Any | None = None) -> None:
         setattr(self, key, obj.get(key, default))
 
     def join(self, attr: dict[str, Any]) -> None:
@@ -90,12 +90,14 @@ class DatasetAttr:
                 self.set_attr(tag, attr["tags"])
 
 
-def get_dataset_list(dataset_names: Optional[list[str]], dataset_dir: str) -> list["DatasetAttr"]:
+def get_dataset_list(dataset_names: list[str] | None, dataset_dir: str | dict) -> list["DatasetAttr"]:
     r"""Get the attributes of the datasets."""
     if dataset_names is None:
         dataset_names = []
 
-    if dataset_dir == "ONLINE":
+    if isinstance(dataset_dir, dict):
+        dataset_info = dataset_dir
+    elif dataset_dir == "ONLINE":
         dataset_info = None
     else:
         if dataset_dir.startswith("REMOTE:"):

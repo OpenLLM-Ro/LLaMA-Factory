@@ -1,12 +1,15 @@
 The [dataset_info.json](dataset_info.json) contains all available datasets. If you are using a custom dataset, please **make sure** to add a *dataset description* in `dataset_info.json` and specify `dataset: dataset_name` before training to use it.
 
-Currently we support datasets in **alpaca** and **sharegpt** format.
+The `dataset_info.json` file should be put in the `dataset_dir` directory. You can change `dataset_dir` to use another directory. The default value is `./data`.
+
+Currently we support datasets in **alpaca** and **sharegpt** format. Allowed file types include json, jsonl, csv, parquet, arrow.
 
 ```json
 "dataset_name": {
-  "hf_hub_url": "the name of the dataset repository on the Hugging Face hub. (if specified, ignore script_url and file_name)",
-  "ms_hub_url": "the name of the dataset repository on the Model Scope hub. (if specified, ignore script_url and file_name)",
-  "script_url": "the name of the directory containing a dataset loading script. (if specified, ignore file_name)",
+  "hf_hub_url": "the name of the dataset repository on the Hugging Face hub. (if specified, ignore script_url, file_name and cloud_file_name)",
+  "ms_hub_url": "the name of the dataset repository on the Model Scope hub. (if specified, ignore script_url, file_name and cloud_file_name)",
+  "script_url": "the name of the directory containing a dataset loading script. (if specified, ignore file_name and cloud_file_name)",
+  "cloud_file_name": "the name of the dataset file in s3/gcs cloud storage. (if specified, ignore file_name)",
   "file_name": "the name of the dataset folder or dataset file in this directory. (required if above are not specified)",
   "formatting": "the format of the dataset. (optional, default: alpaca, can be chosen from {alpaca, sharegpt})",
   "ranking": "whether the dataset is a preference dataset or not. (default: False)",
@@ -58,13 +61,13 @@ The `history` column is a list consisting of string tuples representing prompt-r
 ```json
 [
   {
-    "instruction": "human instruction (required)",
-    "input": "human input (optional)",
+    "instruction": "user instruction (required)",
+    "input": "user input (optional)",
     "output": "model response (required)",
     "system": "system prompt (optional)",
     "history": [
-      ["human instruction in the first round (optional)", "model response in the first round (optional)"],
-      ["human instruction in the second round (optional)", "model response in the second round (optional)"]
+      ["user instruction in the first round (optional)", "model response in the first round (optional)"],
+      ["user instruction in the second round (optional)", "model response in the second round (optional)"]
     ]
   }
 ]

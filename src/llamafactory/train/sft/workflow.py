@@ -21,9 +21,10 @@ from ...data import SFTDataCollatorWith4DAttentionMask, get_dataset, get_templat
 from ...extras.constants import IGNORE_INDEX
 from ...extras.logging import get_logger
 from ...extras.misc import calculate_tps
+from ...extras.packages import is_transformers_version_greater_than
 from ...extras.ploting import plot_loss
 from ...model import load_model, load_tokenizer
-from ..trainer_utils import create_modelcard_and_push
+from ..trainer_utils import create_modelcard_and_push, create_ref_model
 from .metric import ComputeAccuracy, ComputeSimilarity, eval_logit_processor
 from .trainer import CustomSeq2SeqTrainer
 
@@ -51,6 +52,10 @@ def run_sft(
     dataset_module = get_dataset(template, model_args, data_args, training_args, stage="sft", **tokenizer_module)
     model = load_model(tokenizer, model_args, finetuning_args, training_args.do_train)
 
+    ref_model = None
+    if finetuning_args.use_asft_loss:
+        ref_model = create_ref_model(model_args, finetuning_args)
+
     if getattr(model, "is_quantized", False) and not training_args.do_train:
         setattr(model, "_hf_peft_config_loaded", True)  # hack here: make model compatible with prediction
 
@@ -60,6 +65,7 @@ def run_sft(
         pad_to_multiple_of=8 if training_args.do_train else None,  # for shift short attention
         label_pad_token_id=IGNORE_INDEX if data_args.ignore_pad_token_for_loss else tokenizer.pad_token_id,
         block_diag_attn=model_args.block_diag_attn,
+        neat_packing=data_args.neat_packing,
         attn_implementation=getattr(model.config, "_attn_implementation", None),
         compute_dtype=model_args.compute_dtype,
         **tokenizer_module,
@@ -67,6 +73,12 @@ def run_sft(
 
     # Metric utils
     metric_module = {}
+    if model_args.use_kt:
+        if training_args.predict_with_generate:
+            raise NotImplementedError("`predict_with_generate` is not supported in KTransformers SFT yet.")
+        elif finetuning_args.compute_accuracy:
+            raise NotImplementedError("`compute_accuracy` is not supported in KTransformers SFT yet.")
+
     if training_args.predict_with_generate:
         metric_module["compute_metrics"] = ComputeSimilarity(tokenizer=tokenizer)
     elif finetuning_args.compute_accuracy:
@@ -75,7 +87,19 @@ def run_sft(
 
     # Keyword arguments for `model.generate`
     gen_kwargs = generating_args.to_dict(obey_generation_config=True)
-    gen_kwargs["eos_token_id"] = [tokenizer.eos_token_id] + tokenizer.additional_special_tokens_ids
+
+    # Compatible with Transformers v4 and Transformers v5
+    if is_transformers_version_greater_than("4.58.0"):
+        extra_ids = getattr(tokenizer, "additional_special_tokens_ids", None)
+        if not isinstance(extra_ids, list):
+            extra_special_tokens = getattr(tokenizer, "_extra_special_tokens", [])
+            string_tokens = [str(t) for t in extra_special_tokens]
+            extra_ids = tokenizer.convert_tokens_to_ids(string_tokens)
+        all_eos_ids = [tokenizer.eos_token_id] + [i for i in extra_ids if i != -1]
+        unique_eos_ids = list(dict.fromkeys(all_eos_ids))
+        gen_kwargs["eos_token_id"] = unique_eos_ids
+    else:
+        gen_kwargs["eos_token_id"] = [tokenizer.eos_token_id] + tokenizer.additional_special_tokens_ids
     gen_kwargs["pad_token_id"] = tokenizer.pad_token_id
 
     # Initialize our Trainer
@@ -86,6 +110,7 @@ def run_sft(
         data_collator=data_collator,
         callbacks=callbacks,
         gen_kwargs=gen_kwargs,
+        ref_model=ref_model,
         **dataset_module,
         **tokenizer_module,
         **metric_module,
