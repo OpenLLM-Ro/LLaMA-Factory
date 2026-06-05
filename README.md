@@ -1,4 +1,4 @@
-# Training of RoLLMs
+# Training of RoLLMs & RoVLMs
 
 Official code used for training Romanian LLMs and VLMS as proposed in [Masala et al. 2024](https://arxiv.org/abs/2406.18266) and in [Masala et al. 2026](https://arxiv.org/abs/2605.31401). This repo is a fork of the popular [hiyouga/LLaMA-Factory](https://github.com/hiyouga/LLaMA-Factory) repo used for training and finetuning LLMs. On top of the existing framework we added a suite of Romanian datasets:
 
